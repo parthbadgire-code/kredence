@@ -1,140 +1,270 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useState, useCallback, useRef } from "react";
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import { Program, AnchorProvider, web3, Idl } from "@coral-xyz/anchor";
+import { PublicKey, SystemProgram } from "@solana/web3.js";
 import CryptoJS from "crypto-js";
+import IDL from "@/lib/idl.json";
+import {
+  PROGRAM_ID,
+  BUBBLEGUM_PROGRAM_ID,
+  SPL_NOOP_PROGRAM_ID,
+  SPL_ACCOUNT_COMPRESSION_ID,
+  deriveContentRecordPDA,
+} from "@/lib/constants";
+
+type StatusType = "idle" | "loading" | "success" | "error";
+
+interface StatusState {
+  message: string;
+  type: StatusType;
+}
 
 export default function Home() {
-  const { connected, publicKey } = useWallet();
+  const { connection } = useConnection();
+  const wallet = useWallet();
+  const { connected, publicKey } = wallet;
+
   const [file, setFile] = useState<File | null>(null);
   const [pHash, setPHash] = useState<string>("");
+  const [committed, setCommitted] = useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
   const [isMinting, setIsMinting] = useState(false);
-  const [status, setStatus] = useState<string>("");
+  const [status, setStatus] = useState<StatusState>({ message: "", type: "idle" });
+  const [txSig, setTxSig] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const selectedFile = e.target.files[0];
-      setFile(selectedFile);
-      
-      // Calculate a basic SHA256 hash of the file as a simulated pHash
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const fileContent = event.target?.result;
-        if (fileContent) {
-          const wordArray = CryptoJS.lib.WordArray.create(fileContent as any);
-          const hash = CryptoJS.SHA256(wordArray).toString(CryptoJS.enc.Hex);
-          // We truncate/pad to 64 chars for the smart contract requirement if needed
-          setPHash(hash.substring(0, 64));
-          setStatus("File hashed successfully.");
-        }
-      };
-      reader.readAsArrayBuffer(selectedFile);
-    }
+  // Build an AnchorProvider + Program instance on demand
+  const getProgram = useCallback(() => {
+    if (!wallet.publicKey || !wallet.signTransaction) return null;
+    const provider = new AnchorProvider(
+      connection,
+      wallet as any,
+      { commitment: "confirmed" }
+    );
+    return new Program(IDL as Idl, provider);
+  }, [connection, wallet]);
+
+  // ------- File hash -------
+  const handleFileDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const f = e.dataTransfer.files?.[0];
+    if (f) processFile(f);
   }, []);
 
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (f) processFile(f);
+  }, []);
+
+  const processFile = (f: File) => {
+    setFile(f);
+    setPHash("");
+    setCommitted(false);
+    setTxSig("");
+    setStatus({ message: "Hashing file…", type: "loading" });
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const buf = e.target?.result;
+      if (!buf) return;
+      const wordArray = CryptoJS.lib.WordArray.create(buf as ArrayBuffer);
+      const hash = CryptoJS.SHA256(wordArray).toString(CryptoJS.enc.Hex); // always 64 chars
+      setPHash(hash);
+      setStatus({ message: "File hashed — ready to commit.", type: "success" });
+    };
+    reader.readAsArrayBuffer(f);
+  };
+
+  // ------- Commit -------
   const handleCommit = async () => {
-    if (!connected || !pHash) return;
+    if (!connected || !pHash || !publicKey) return;
+    const program = getProgram();
+    if (!program) return;
+
     setIsCommitting(true);
-    setStatus("Committing hash to blockchain...");
-    
+    setStatus({ message: "Sending commit transaction…", type: "loading" });
+
     try {
-      // In a real implementation, we would use @coral-xyz/anchor to interact 
-      // with the smart contract and invoke `commit_content(pHash)`
-      // Simulated delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      setStatus(`Success! Hash committed: ${pHash}`);
-    } catch (err) {
+      const [contentRecordPDA] = deriveContentRecordPDA(pHash);
+
+      const sig = await (program.methods as any)
+        .commitContent(pHash)
+        .accounts({
+          payer: publicKey,
+          contentRecord: contentRecordPDA,
+          systemProgram: SystemProgram.programId,
+        })
+        .rpc();
+
+      setTxSig(sig);
+      setCommitted(true);
+      setStatus({
+        message: `✅ Committed on-chain! Tx: ${sig.slice(0, 20)}…`,
+        type: "success",
+      });
+    } catch (err: any) {
       console.error(err);
-      setStatus("Error: Hash already committed or transaction failed.");
+      const msg = err?.message?.includes("custom program error: 0x0")
+        ? "⚠️ This hash was already committed (duplicate content)."
+        : `❌ ${err?.message ?? "Transaction failed."}`;
+      setStatus({ message: msg, type: "error" });
     } finally {
       setIsCommitting(false);
     }
   };
 
+  // ------- Reveal & Mint -------
   const handleMint = async () => {
-    if (!connected || !pHash) return;
+    if (!connected || !pHash || !publicKey || !committed) return;
+    const program = getProgram();
+    if (!program) return;
+
     setIsMinting(true);
-    setStatus("Minting cNFT...");
-    
+    setStatus({ message: "Sending reveal & mint transaction…", type: "loading" });
+
     try {
-      // In a real implementation, we would fetch the Merkle tree accounts 
-      // and invoke `reveal_and_mint`
-      // Simulated delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      setStatus("Success! cNFT minted to your wallet.");
-    } catch (err) {
+      const [contentRecordPDA] = deriveContentRecordPDA(pHash);
+
+      // Derive the Bubblegum tree_config PDA for a localnet test tree
+      // In production, this should come from a pre-initialized Merkle Tree
+      const [treeConfig] = PublicKey.findProgramAddressSync(
+        [Buffer.from("tree")],
+        BUBBLEGUM_PROGRAM_ID
+      );
+
+      const sig = await (program.methods as any)
+        .revealAndMint()
+        .accounts({
+          creator: publicKey,
+          contentRecord: contentRecordPDA,
+          treeConfig,
+          merkleTree: treeConfig, // placeholder for local demo
+          logWrapper: SPL_NOOP_PROGRAM_ID,
+          compressionProgram: SPL_ACCOUNT_COMPRESSION_ID,
+          systemProgram: SystemProgram.programId,
+        })
+        .rpc();
+
+      setTxSig(sig);
+      setStatus({
+        message: `🎉 cNFT minted! Tx: ${sig.slice(0, 20)}…`,
+        type: "success",
+      });
+    } catch (err: any) {
       console.error(err);
-      setStatus("Error minting cNFT.");
+      setStatus({
+        message: `❌ Mint failed: ${err?.message ?? "Unknown error"}`,
+        type: "error",
+      });
     } finally {
       setIsMinting(false);
     }
   };
 
+  const statusColor = {
+    idle: "text-gray-400",
+    loading: "text-yellow-400",
+    success: "text-green-400",
+    error: "text-red-400",
+  }[status.type];
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-24 bg-gray-950 text-white">
-      <div className="z-10 max-w-5xl w-full flex flex-col items-center font-mono text-sm gap-8">
-        <h1 className="text-4xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-600">
-          Kredence
-        </h1>
-        <p className="text-gray-400 text-lg mb-8">Prove content originality with cNFTs</p>
+    <main className="flex min-h-screen flex-col items-center justify-center p-6 bg-gray-950 text-white">
+      <div className="w-full max-w-lg flex flex-col items-center gap-8">
 
-        <WalletMultiButton className="!bg-purple-600 hover:!bg-purple-700 transition-colors" />
+        {/* Header */}
+        <div className="text-center">
+          <h1 className="text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
+            Kredence
+          </h1>
+          <p className="text-gray-400 mt-2 text-base">
+            Prove content originality · Commit-Reveal · Compressed NFTs
+          </p>
+        </div>
 
-        {connected ? (
-          <div className="flex flex-col items-center w-full max-w-md gap-6 bg-gray-900 p-8 rounded-xl border border-gray-800 shadow-2xl">
-            <div className="w-full">
-              <label className="block text-sm font-medium text-gray-400 mb-2">
-                Upload Content
-              </label>
+        {/* Wallet button */}
+        <WalletMultiButton className="!bg-purple-600 hover:!bg-purple-700 !rounded-lg !transition-colors" />
+
+        {connected && (
+          <div className="w-full flex flex-col gap-5 bg-gray-900 border border-gray-800 rounded-2xl p-6 shadow-2xl">
+
+            {/* Drop zone */}
+            <div
+              onDrop={handleFileDrop}
+              onDragOver={(e) => e.preventDefault()}
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full border-2 border-dashed border-gray-700 hover:border-purple-500 rounded-xl p-8 text-center cursor-pointer transition-colors"
+            >
+              {file ? (
+                <p className="text-purple-300 font-medium">{file.name}</p>
+              ) : (
+                <>
+                  <p className="text-gray-400">Drag & drop an image here</p>
+                  <p className="text-gray-600 text-sm mt-1">or click to browse</p>
+                </>
+              )}
               <input
+                ref={fileInputRef}
                 type="file"
+                accept="image/*"
                 onChange={handleFileChange}
-                className="block w-full text-sm text-gray-500
-                  file:mr-4 file:py-2 file:px-4
-                  file:rounded-full file:border-0
-                  file:text-sm file:font-semibold
-                  file:bg-purple-500/10 file:text-purple-400
-                  hover:file:bg-purple-500/20 transition-all
-                  cursor-pointer bg-gray-800 rounded-lg p-2 border border-gray-700"
+                className="hidden"
               />
             </div>
 
+            {/* Hash display */}
             {pHash && (
-              <div className="w-full bg-gray-950 p-4 rounded-lg border border-gray-800 break-all">
-                <p className="text-xs text-gray-500 mb-1">Generated Hash (pHash):</p>
-                <p className="text-sm text-green-400 font-mono">{pHash}</p>
+              <div className="bg-gray-950 rounded-lg p-3 border border-gray-800">
+                <p className="text-xs text-gray-500 mb-1">SHA-256 pHash (64 chars):</p>
+                <p className="text-green-400 font-mono text-xs break-all">{pHash}</p>
               </div>
             )}
 
-            <div className="flex w-full gap-4">
+            {/* Commit / Mint buttons */}
+            <div className="flex gap-3">
               <button
                 onClick={handleCommit}
-                disabled={!pHash || isCommitting}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-800 disabled:text-gray-500 text-white font-bold py-3 px-4 rounded-lg transition-all"
+                disabled={!pHash || isCommitting || committed}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-800 disabled:text-gray-600 font-bold py-3 rounded-lg transition-all"
               >
-                {isCommitting ? "Committing..." : "Commit Content"}
+                {committed ? "✓ Committed" : isCommitting ? "Committing…" : "1. Commit to Kredence"}
               </button>
               <button
                 onClick={handleMint}
-                disabled={!pHash || isMinting}
-                className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-800 disabled:text-gray-500 text-white font-bold py-3 px-4 rounded-lg transition-all"
+                disabled={!committed || isMinting}
+                className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-800 disabled:text-gray-600 font-bold py-3 rounded-lg transition-all"
               >
-                {isMinting ? "Minting..." : "Mint cNFT Receipt"}
+                {isMinting ? "Minting…" : "2. Mint cNFT Receipt"}
               </button>
             </div>
 
-            {status && (
-              <p className="text-sm mt-4 text-center text-gray-300">
-                {status}
+            {/* Status */}
+            {status.message && (
+              <p className={`text-sm text-center ${statusColor} break-all`}>
+                {status.message}
               </p>
             )}
+
+            {/* Tx link */}
+            {txSig && (
+              <a
+                href={`https://explorer.solana.com/tx/${txSig}?cluster=custom&customUrl=http%3A%2F%2F127.0.0.1%3A8899`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-center text-purple-400 hover:text-purple-300 underline break-all"
+              >
+                View on Solana Explorer →
+              </a>
+            )}
+
           </div>
-        ) : (
-          <div className="text-gray-500 mt-12">
-            Please connect your wallet to get started.
-          </div>
+        )}
+
+        {!connected && (
+          <p className="text-gray-600 text-sm">Connect your wallet to get started.</p>
         )}
       </div>
     </main>

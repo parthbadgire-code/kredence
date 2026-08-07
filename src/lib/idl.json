@@ -1,0 +1,220 @@
+{
+  "address": "J8zY5tEUxTsz5U6EUPyreRn4vU2ZrxutWAWZtxyJptbp",
+  "metadata": {
+    "name": "anchor_kredence",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Created with Anchor"
+  },
+  "instructions": [
+    {
+      "name": "commit_content",
+      "docs": [
+        "Instruction 1: commit_content",
+        "",
+        "Implements the \"Commit\" phase of the Commit-Reveal scheme.",
+        "",
+        "The `pHash` (perceptual hash, 64 hex chars) is used as a PDA seed.",
+        "",
+        "COLLISION RESISTANCE:",
+        "- Seeds: [b\"content\", p_hash.as_bytes()]",
+        "- Because Solana requires each PDA address to be unique per program,",
+        "two identical hashes will always resolve to the same address.",
+        "- Anchor's `init` constraint unconditionally rejects initialising an",
+        "account that already exists → duplicate content is rejected at the",
+        "VM level, no custom logic required."
+      ],
+      "discriminator": [
+        151,
+        181,
+        39,
+        126,
+        229,
+        52,
+        83,
+        156
+      ],
+      "accounts": [
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "content_record",
+          "docs": [
+            "ContentRecord PDA — seeded by the pHash itself.",
+            "Anchor's `init` constraint rejects duplicate accounts → hash collision",
+            "is impossible on-chain without any extra code."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  116,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "p_hash"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "p_hash",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "reveal_and_mint",
+      "docs": [
+        "Instruction 2: reveal_and_mint",
+        "",
+        "Implements the \"Reveal\" phase.",
+        "",
+        "1. Verifies the signer is the same wallet that committed the hash.",
+        "2. Performs a raw CPI (invoke) to Metaplex Bubblegum's `mintV1` instruction",
+        "to mint a Compressed NFT to the creator's wallet.",
+        "",
+        "Using raw `invoke` instead of the bubblegum-rs CPI bindings avoids the",
+        "transitive dependency version conflicts caused by mpl-bubblegum pulling",
+        "in an older solana-program."
+      ],
+      "discriminator": [
+        107,
+        200,
+        254,
+        144,
+        182,
+        52,
+        37,
+        50
+      ],
+      "accounts": [
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "content_record",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  116,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "content_record.p_hash",
+                "account": "ContentRecord"
+              }
+            ]
+          }
+        },
+        {
+          "name": "tree_config",
+          "writable": true
+        },
+        {
+          "name": "merkle_tree",
+          "writable": true
+        },
+        {
+          "name": "log_wrapper"
+        },
+        {
+          "name": "compression_program"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    }
+  ],
+  "accounts": [
+    {
+      "name": "ContentRecord",
+      "discriminator": [
+        22,
+        30,
+        119,
+        161,
+        251,
+        124,
+        237,
+        60
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "InvalidHashLength",
+      "msg": "pHash must be exactly 64 characters (hex-encoded)."
+    },
+    {
+      "code": 6001,
+      "name": "UnauthorizedCreator",
+      "msg": "Only the original creator can reveal and mint."
+    }
+  ],
+  "types": [
+    {
+      "name": "ContentRecord",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "creator",
+            "docs": [
+              "The wallet that originally committed this hash"
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "timestamp",
+            "docs": [
+              "Unix timestamp of when the commitment was made (Proof-of-History anchor)"
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "p_hash",
+            "docs": [
+              "64-character hex perceptual hash used as both data and PDA seed"
+            ],
+            "type": "string"
+          }
+        ]
+      }
+    }
+  ]
+}
