@@ -5,7 +5,7 @@ use mpl_bubblegum::{
 };
 use spl_account_compression::{program::SplAccountCompression, Noop};
 
-declare_id!("Kredence11111111111111111111111111111111111");
+declare_id!("J8zY5tEUxTsz5U6EUPyreRn4vU2ZrxutWAWZtxyJptbp");
 
 #[program]
 pub mod anchor_kredence {
