@@ -177,7 +177,10 @@ pub struct CommitContent<'info> {
         payer  = payer,
         // Discriminator(8) + Pubkey(32) + i64(8) + String len prefix(4) + String data(64)
         space  = 8 + 32 + 8 + 4 + 64,
-        seeds  = [b"content", p_hash.as_bytes()],
+        // pHash is 64 bytes — Solana max seed is 32 bytes per seed.
+        // We split the 64-char hex pHash into two 32-byte halves.
+        // Full collision resistance is maintained as both halves are needed.
+        seeds  = [b"content", p_hash.as_bytes().get(..32).unwrap(), p_hash.as_bytes().get(32..64).unwrap()],
         bump
     )]
     pub content_record: Account<'info, ContentRecord>,
@@ -192,7 +195,7 @@ pub struct RevealAndMint<'info> {
 
     #[account(
         mut,
-        seeds = [b"content", content_record.p_hash.as_bytes()],
+        seeds = [b"content", content_record.p_hash.as_bytes().get(..32).unwrap(), content_record.p_hash.as_bytes().get(32..64).unwrap()],
         bump,
         constraint = content_record.creator == creator.key() @ KredenceError::UnauthorizedCreator
     )]

@@ -16,10 +16,18 @@ export const SPL_ACCOUNT_COMPRESSION_ID = new PublicKey(
   "cmtDvXumGCrqC1Age74AVPhSRVXJMd8PJS91L8KbNCK"
 );
 
-/** Derives the ContentRecord PDA for a given pHash */
+/** Derives the ContentRecord PDA for a given pHash.
+ *  The pHash (64 hex chars = 64 bytes) is split into two 32-byte seeds
+ *  to stay within Solana's 32-byte-per-seed limit.
+ */
 export function deriveContentRecordPDA(pHash: string): [PublicKey, number] {
+  const pHashBytes = Buffer.from(pHash); // 64 bytes (ASCII hex chars)
   return PublicKey.findProgramAddressSync(
-    [Buffer.from("content"), Buffer.from(pHash)],
+    [
+      Buffer.from("content"),
+      pHashBytes.slice(0, 32),  // first 32 bytes
+      pHashBytes.slice(32, 64), // second 32 bytes
+    ],
     PROGRAM_ID
   );
 }
