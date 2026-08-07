@@ -128,22 +128,11 @@ export default function Home() {
     try {
       const [contentRecordPDA] = deriveContentRecordPDA(pHash);
 
-      // Derive the Bubblegum tree_config PDA for a localnet test tree
-      // In production, this should come from a pre-initialized Merkle Tree
-      const [treeConfig] = PublicKey.findProgramAddressSync(
-        [Buffer.from("tree")],
-        BUBBLEGUM_PROGRAM_ID
-      );
-
       const sig = await (program.methods as any)
         .revealAndMint()
         .accounts({
           creator: publicKey,
           contentRecord: contentRecordPDA,
-          treeConfig,
-          merkleTree: treeConfig, // placeholder for local demo
-          logWrapper: SPL_NOOP_PROGRAM_ID,
-          compressionProgram: SPL_ACCOUNT_COMPRESSION_ID,
           systemProgram: SystemProgram.programId,
         })
         .rpc();

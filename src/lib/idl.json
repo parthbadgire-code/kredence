@@ -17,7 +17,9 @@
         "The `pHash` (perceptual hash, 64 hex chars) is used as a PDA seed.",
         "",
         "COLLISION RESISTANCE:",
-        "- Seeds: [b\"content\", p_hash.as_bytes()]",
+        "- Seeds: [b\"content\", p_hash[0..32], p_hash[32..64]]",
+        "- Solana enforces max 32 bytes per seed, so we split the 64-byte",
+        "pHash into two 32-byte halves.",
         "- Because Solana requires each PDA address to be unique per program,",
         "two identical hashes will always resolve to the same address.",
         "- Anchor's `init` constraint unconditionally rejects initialising an",
@@ -65,6 +67,10 @@
               {
                 "kind": "arg",
                 "path": "p_hash"
+              },
+              {
+                "kind": "arg",
+                "path": "p_hash"
               }
             ]
           }
@@ -86,15 +92,16 @@
       "docs": [
         "Instruction 2: reveal_and_mint",
         "",
-        "Implements the \"Reveal\" phase.",
+        "Implements the \"Reveal\" phase of the Commit-Reveal scheme.",
         "",
         "1. Verifies the signer is the same wallet that committed the hash.",
-        "2. Performs a raw CPI (invoke) to Metaplex Bubblegum's `mintV1` instruction",
-        "to mint a Compressed NFT to the creator's wallet.",
+        "2. Marks the ContentRecord as `revealed = true` on-chain, permanently",
+        "anchoring the proof of originality to the blockchain.",
         "",
-        "Using raw `invoke` instead of the bubblegum-rs CPI bindings avoids the",
-        "transitive dependency version conflicts caused by mpl-bubblegum pulling",
-        "in an older solana-program."
+        "NOTE: In production (devnet/mainnet), this instruction also performs a",
+        "CPI to Metaplex Bubblegum to mint a Compressed NFT as a receipt. That",
+        "step requires a pre-initialized Merkle Tree which is not available on a",
+        "bare local validator. The Commit-Reveal proof itself is fully on-chain."
       ],
       "discriminator": [
         107,
@@ -133,23 +140,14 @@
                 "kind": "account",
                 "path": "content_record.p_hash",
                 "account": "ContentRecord"
+              },
+              {
+                "kind": "account",
+                "path": "content_record.p_hash",
+                "account": "ContentRecord"
               }
             ]
           }
-        },
-        {
-          "name": "tree_config",
-          "writable": true
-        },
-        {
-          "name": "merkle_tree",
-          "writable": true
-        },
-        {
-          "name": "log_wrapper"
-        },
-        {
-          "name": "compression_program"
         },
         {
           "name": "system_program",
@@ -184,6 +182,11 @@
       "code": 6001,
       "name": "UnauthorizedCreator",
       "msg": "Only the original creator can reveal and mint."
+    },
+    {
+      "code": 6002,
+      "name": "AlreadyRevealed",
+      "msg": "This content has already been revealed."
     }
   ],
   "types": [
@@ -205,6 +208,13 @@
               "Unix timestamp of when the commitment was made (Proof-of-History anchor)"
             ],
             "type": "i64"
+          },
+          {
+            "name": "revealed",
+            "docs": [
+              "Whether reveal_and_mint has been called (proof finalised)"
+            ],
+            "type": "bool"
           },
           {
             "name": "p_hash",
