@@ -13,10 +13,13 @@ no-entrypoint = []
 no-idl = []
 no-log-ix-name = []
 cpi = ["no-entrypoint"]
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 default = []
 
 [dependencies]
-anchor-lang = "0.29.0"
-anchor-spl = "0.29.0"
-mpl-bubblegum = { version = "1.0.0", features = ["cpi"] }
-spl-account-compression = { version = "0.2.0", features = ["cpi"] }
+# Anchor 1.0.x lang/spl — compatible with Solana CLI 4.x and uses
+# cargo build-sbf (not the deprecated build-bpf).
+# All Bubblegum/compression CPIs are performed via raw solana_program::invoke
+# to avoid transitive dependency conflicts.
+anchor-lang = "1.0.1"
+anchor-spl = "1.0.1"
