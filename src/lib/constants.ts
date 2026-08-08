@@ -16,6 +16,10 @@ export const SPL_ACCOUNT_COMPRESSION_ID = new PublicKey(
   "cmtDvXumGCrqC1Age74AVPhSRVXJMd8PJS91L8KbNCK"
 );
 
+export const MERKLE_TREE_ADDRESS = new PublicKey(
+  "DQ8KRB2sm3a4hfovUfmxugFSZDXMgRiDXmUEFWsTHtqr"
+);
+
 /** Derives the ContentRecord PDA for a given pHash.
  *  The pHash (64 hex chars = 64 bytes) is split into two 32-byte seeds
  *  to stay within Solana's 32-byte-per-seed limit.

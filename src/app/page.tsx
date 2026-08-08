@@ -12,6 +12,7 @@ import {
   BUBBLEGUM_PROGRAM_ID,
   SPL_NOOP_PROGRAM_ID,
   SPL_ACCOUNT_COMPRESSION_ID,
+  MERKLE_TREE_ADDRESS,
   deriveContentRecordPDA,
 } from "@/lib/constants";
 
@@ -268,7 +269,7 @@ export default function Home() {
     try {
       const [pda] = deriveContentRecordPDA(pHash);
       const [treeConfig] = PublicKey.findProgramAddressSync(
-        [Buffer.from("tree")],
+        [MERKLE_TREE_ADDRESS.toBuffer()],
         BUBBLEGUM_PROGRAM_ID
       );
 
@@ -278,7 +279,7 @@ export default function Home() {
           creator: publicKey,
           contentRecord: pda,
           treeConfig,
-          merkleTree: treeConfig,
+          merkleTree: MERKLE_TREE_ADDRESS,
           logWrapper: SPL_NOOP_PROGRAM_ID,
           compressionProgram: SPL_ACCOUNT_COMPRESSION_ID,
           bubblegumProgram: BUBBLEGUM_PROGRAM_ID,
