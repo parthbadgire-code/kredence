@@ -7,6 +7,7 @@ import { Program, AnchorProvider, web3, Idl, BN } from "@coral-xyz/anchor";
 import { PublicKey, SystemProgram, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import CryptoJS from "crypto-js";
 import IDL from "@/lib/idl.json";
+import BackgroundCanvas from "@/components/BackgroundCanvas";
 import {
   BUBBLEGUM_PROGRAM_ID,
   SPL_NOOP_PROGRAM_ID,
@@ -399,8 +400,11 @@ export default function Home() {
 
   // ── Render ──────────────────────────────────────────────────
   return (
-    <main className="min-h-screen bg-[#050505] text-[#e5e5e7] selection:bg-purple-900/40 selection:text-purple-200">
-      <div className="mx-auto max-w-xl px-4 py-12 flex flex-col gap-10">
+    <main className="relative min-h-screen bg-[#050505] text-[#e5e5e7] selection:bg-purple-900/40 selection:text-purple-200 overflow-hidden">
+      {/* Interactive 3D Three.js Background */}
+      <BackgroundCanvas />
+
+      <div className="relative z-10 mx-auto max-w-xl px-4 py-12 flex flex-col gap-10">
 
         {/* Header / Brand */}
         <header className="flex flex-col items-center text-center gap-3">
