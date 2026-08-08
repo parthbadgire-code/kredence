@@ -1,33 +1,30 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Space_Grotesk, Inter } from "next/font/google";
 import "./globals.css";
 import SolanaProviders from "@/components/SolanaProviders";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
+  variable: "--font-space",
+  weight: ["400", "500", "600", "700"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const inter = Inter({
   subsets: ["latin"],
+  variable: "--font-inter",
 });
 
 export const metadata: Metadata = {
-  title: "Kredence",
-  description: "Prove content originality with cNFTs",
+  title: "Kredence — Prove Content Originality on Solana",
+  description: "Commit-Reveal scheme with Compressed NFTs to prove content originality on-chain.",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-950 text-white`}
-      >
+    <html lang="en" className={`${spaceGrotesk.variable} ${inter.variable}`}>
+      <body className="antialiased">
         <SolanaProviders>{children}</SolanaProviders>
       </body>
     </html>
