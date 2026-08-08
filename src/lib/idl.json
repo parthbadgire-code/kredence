@@ -1,5 +1,5 @@
 {
-  "address": "noopb9bkMVfRPU8AsbpTUg8AQkHtKwMYZiFUjNRtMmV",
+  "address": "cmtDvXumGCrqC1Age74AVPhSRVXJMd8PJS91L8KbNCK",
   "metadata": {
     "name": "anchor_kredence",
     "version": "0.1.0",
@@ -7,6 +7,49 @@
     "description": "Created with Anchor"
   },
   "instructions": [
+    {
+      "name": "check_similarity",
+      "docs": [
+        "Instruction 3: check_similarity",
+        "",
+        "A pure, stateless helper instruction. It takes two 64-char hex pHashes,",
+        "computes the bitwise Hamming distance on-chain, and emits the result",
+        "via `SimilarityChecked` event so the client can read it from tx logs.",
+        "",
+        "Hamming distance interpretation (for SHA-256 of images):",
+        "- 0        : identical bytes (same file)",
+        "- 1–50     : very similar (near-duplicate)",
+        "- 50–200   : some similarity",
+        "- 200–256  : very different content"
+      ],
+      "discriminator": [
+        122,
+        81,
+        111,
+        108,
+        155,
+        3,
+        34,
+        229
+      ],
+      "accounts": [
+        {
+          "name": "caller",
+          "writable": true,
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "hash1",
+          "type": "string"
+        },
+        {
+          "name": "hash2",
+          "type": "string"
+        }
+      ]
+    },
     {
       "name": "commit_content",
       "docs": [
@@ -77,7 +120,7 @@
     {
       "name": "purchase_license",
       "docs": [
-        "Instruction 3: purchase_license"
+        "Instruction 4: purchase_license"
       ],
       "discriminator": [
         42,
@@ -252,6 +295,19 @@
         195,
         168
       ]
+    },
+    {
+      "name": "SimilarityChecked",
+      "discriminator": [
+        227,
+        247,
+        239,
+        172,
+        105,
+        250,
+        78,
+        199
+      ]
     }
   ],
   "errors": [
@@ -348,6 +404,36 @@
           },
           {
             "name": "Minted"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SimilarityChecked",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "hash1",
+            "type": "string"
+          },
+          {
+            "name": "hash2",
+            "type": "string"
+          },
+          {
+            "name": "distance",
+            "docs": [
+              "Number of bits that differ between the two hashes (0–256)."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "label",
+            "docs": [
+              "Human-readable label: IDENTICAL | VERY_SIMILAR | SOMEWHAT_SIMILAR | DIFFERENT"
+            ],
+            "type": "string"
           }
         ]
       }

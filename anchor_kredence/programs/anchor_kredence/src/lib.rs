@@ -120,7 +120,50 @@ pub mod anchor_kredence {
         Ok(())
     }
 
-    /// Instruction 3: purchase_license
+    /// Instruction 3: check_similarity
+    ///
+    /// A pure, stateless helper instruction. It takes two 64-char hex pHashes,
+    /// computes the bitwise Hamming distance on-chain, and emits the result
+    /// via `SimilarityChecked` event so the client can read it from tx logs.
+    ///
+    /// Hamming distance interpretation (for SHA-256 of images):
+    ///   - 0        : identical bytes (same file)
+    ///   - 1–50     : very similar (near-duplicate)
+    ///   - 50–200   : some similarity
+    ///   - 200–256  : very different content
+    pub fn check_similarity(
+        _ctx: Context<CheckSimilarity>,
+        hash1: String,
+        hash2: String,
+    ) -> Result<()> {
+        require!(hash1.len() == 64 && hash2.len() == 64, KredenceError::InvalidHashLength);
+
+        let distance = calculate_hamming_distance(&hash1, &hash2)?;
+
+        let label = match distance {
+            0 => "IDENTICAL",
+            1..=50 => "VERY_SIMILAR",
+            51..=150 => "SOMEWHAT_SIMILAR",
+            _ => "DIFFERENT",
+        };
+
+        emit!(SimilarityChecked {
+            hash1: hash1.clone(),
+            hash2: hash2.clone(),
+            distance,
+            label: label.to_string(),
+        });
+
+        msg!("Kredence | check_similarity");
+        msg!("  hash1    : {}", hash1);
+        msg!("  hash2    : {}", hash2);
+        msg!("  distance : {} bits", distance);
+        msg!("  label    : {}", label);
+
+        Ok(())
+    }
+
+    /// Instruction 4: purchase_license
     pub fn purchase_license(ctx: Context<PurchaseLicense>, fee_lamports: u64) -> Result<()> {
         let record = &ctx.accounts.content_record;
         
@@ -262,6 +305,14 @@ pub struct PurchaseLicense<'info> {
     pub system_program: Program<'info, System>,
 }
 
+/// CheckSimilarity requires no accounts — it's a stateless computation.
+/// We still need a signer so the tx has a fee payer.
+#[derive(Accounts)]
+pub struct CheckSimilarity<'info> {
+    #[account(mut)]
+    pub caller: Signer<'info>,
+}
+
 // ============================================================
 // State & Events
 // ============================================================
@@ -287,6 +338,16 @@ pub struct LicenseIssued {
     pub p_hash: String,
     pub fee_paid: u64,
     pub timestamp: i64,
+}
+
+#[event]
+pub struct SimilarityChecked {
+    pub hash1: String,
+    pub hash2: String,
+    /// Number of bits that differ between the two hashes (0–256).
+    pub distance: u32,
+    /// Human-readable label: IDENTICAL | VERY_SIMILAR | SOMEWHAT_SIMILAR | DIFFERENT
+    pub label: String,
 }
 
 // ============================================================
