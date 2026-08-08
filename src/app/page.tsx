@@ -28,59 +28,6 @@ const truncateSig = (s: string) => `${s.slice(0, 6)}…${s.slice(-6)}`;
 const getExplorerUrl = (sig: string) =>
   `https://explorer.solana.com/tx/${sig}?cluster=custom&customUrl=http%3A%2F%2F127.0.0.1%3A8899`;
 
-function calcHammingDistance(h1: string, h2: string): number | null {
-  if (h1.length !== 64 || h2.length !== 64) return null;
-  let dist = 0;
-  for (let i = 0; i < 64; i += 2) {
-    const b1 = parseInt(h1.slice(i, i + 2), 16);
-    const b2 = parseInt(h2.slice(i, i + 2), 16);
-    if (isNaN(b1) || isNaN(b2)) return null;
-    let xor = b1 ^ b2;
-    while (xor) {
-      dist += xor & 1;
-      xor >>= 1;
-    }
-  }
-  return dist;
-}
-
-function getSimilarityInfo(distance: number) {
-  if (distance === 0) {
-    return {
-      label: "Identical Hashes",
-      color: "text-amber-200/90",
-      bg: "bg-amber-950/30 border-amber-800/40",
-      progressBg: "bg-amber-300/60",
-      percent: 100,
-    };
-  }
-  if (distance <= 50) {
-    return {
-      label: "High Similarity",
-      color: "text-purple-200/90",
-      bg: "bg-purple-950/30 border-purple-800/40",
-      progressBg: "bg-purple-300/60",
-      percent: Math.round(((50 - distance) / 50) * 80 + 15),
-    };
-  }
-  if (distance <= 150) {
-    return {
-      label: "Moderate Similarity",
-      color: "text-indigo-200/90",
-      bg: "bg-indigo-950/30 border-indigo-800/40",
-      progressBg: "bg-indigo-300/60",
-      percent: Math.round(((150 - distance) / 100) * 50),
-    };
-  }
-  return {
-    label: "Distinct Content",
-    color: "text-emerald-200/90",
-    bg: "bg-emerald-950/30 border-emerald-800/40",
-    progressBg: "bg-emerald-300/60",
-    percent: Math.max(4, Math.round(((256 - distance) / 256) * 20)),
-  };
-}
-
 // ─── Status Message Component ─────────────────────────────────
 function StatusBanner({ status }: { status: StatusState }) {
   if (!status.message) return null;
@@ -300,54 +247,83 @@ export default function Home() {
     }
   };
 
-  // ── Section 2: Similarity Checker State ─────────────────────
-  const [simHash1, setSimHash1] = useState("");
-  const [simHash2, setSimHash2] = useState("");
-  const [simResult, setSimResult] = useState<ReturnType<typeof getSimilarityInfo> & { distance: number } | null>(null);
-  const [isSimChecking, setIsSimChecking] = useState(false);
-  const [simStatus, setSimStatus] = useState<StatusState>({ message: "", type: "idle" });
+  // ── Section 2: Originality Checker State ─────────────────────
+  const checkerFileInputRef = useRef<HTMLInputElement>(null);
+  const [checkerFile, setCheckerFile] = useState<File | null>(null);
+  const [checkerPreviewUrl, setCheckerPreviewUrl] = useState<string | null>(null);
+  const [checkerHash, setCheckerHash] = useState<string>("");
+  const [checkerResult, setCheckerResult] = useState<{ claimed: boolean; creator?: string; timestamp?: number } | null>(null);
+  const [isCheckerLoading, setIsCheckerLoading] = useState(false);
+  const [checkerStatus, setCheckerStatus] = useState<StatusState>({ message: "", type: "idle" });
 
-  const handleCheckSimilarity = async () => {
-    const h1 = simHash1.trim();
-    const h2 = simHash2.trim();
+  const processCheckerFile = useCallback(
+    async (f: File) => {
+      setCheckerFile(f);
+      setCheckerPreviewUrl(URL.createObjectURL(f));
+      setCheckerHash("");
+      setCheckerResult(null);
+      setIsCheckerLoading(true);
+      setCheckerStatus({ message: "Generating SHA-256 hash...", type: "loading" });
 
-    if (h1.length !== 64 || h2.length !== 64) {
-      setSimStatus({ message: "Provide two 64-character hex pHashes.", type: "error" });
-      return;
-    }
+      try {
+        const buf = await f.arrayBuffer();
+        const wordArray = CryptoJS.lib.WordArray.create(buf as ArrayBuffer);
+        const hash = CryptoJS.SHA256(wordArray).toString(CryptoJS.enc.Hex);
+        setCheckerHash(hash);
+        setCheckerStatus({ message: "Querying blockchain for PDA...", type: "loading" });
 
-    setIsSimChecking(true);
-    setSimResult(null);
-    setSimStatus({ message: "Executing Hamming distance calculation...", type: "loading" });
-
-    try {
-      const distance = calcHammingDistance(h1, h2);
-      if (distance === null) throw new Error("Invalid hex formatting in input strings.");
-
-      const program = getProgram();
-      if (program && publicKey) {
-        await (program.methods as any)
-          .checkSimilarity(h1, h2)
-          .accounts({ caller: publicKey })
-          .rpc();
+        const [pda] = deriveContentRecordPDA(hash);
+        
+        const program = getProgram();
+        if (program) {
+          try {
+            const record = await (program.account as any).contentRecord.fetch(pda);
+            setCheckerResult({
+              claimed: true,
+              creator: record.creator.toString(),
+              timestamp: record.commitTime.toNumber(),
+            });
+            setCheckerStatus({ message: "Image is already claimed on-chain.", type: "warn" });
+          } catch {
+            setCheckerResult({ claimed: false });
+            setCheckerStatus({ message: "Image is original (not claimed).", type: "success" });
+          }
+        } else {
+          // Fallback if wallet not connected, just check account existence
+          const info = await connection.getAccountInfo(pda);
+          if (info) {
+             setCheckerResult({ claimed: true }); // Can't decode without program easily, but know it exists
+             setCheckerStatus({ message: "Image is already claimed on-chain.", type: "warn" });
+          } else {
+             setCheckerResult({ claimed: false });
+             setCheckerStatus({ message: "Image is original (not claimed).", type: "success" });
+          }
+        }
+      } catch (err: any) {
+        setCheckerStatus({ message: `Checker failed: ${err?.message}`, type: "error" });
+      } finally {
+        setIsCheckerLoading(false);
       }
+    },
+    [connection, getProgram]
+  );
 
-      const info = getSimilarityInfo(distance);
-      setSimResult({ ...info, distance });
-      setSimStatus({ message: `Bitwise distance calculated (${distance} / 256 bits).`, type: "success" });
-    } catch (err: any) {
-      const distance = calcHammingDistance(h1, h2);
-      if (distance !== null) {
-        const info = getSimilarityInfo(distance);
-        setSimResult({ ...info, distance });
-        setSimStatus({ message: `Local calculation complete (${distance} / 256 bits).`, type: "success" });
-      } else {
-        setSimStatus({ message: `Calculation failed: ${err?.message}`, type: "error" });
-      }
-    } finally {
-      setIsSimChecking(false);
-    }
-  };
+  const handleCheckerFileDrop = useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      const f = e.dataTransfer.files?.[0];
+      if (f) processCheckerFile(f);
+    },
+    [processCheckerFile]
+  );
+
+  const handleCheckerFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const f = e.target.files?.[0];
+      if (f) processCheckerFile(f);
+    },
+    [processCheckerFile]
+  );
 
   // ── Section 3: Purchase License State ───────────────────────
   const [licenseHash, setLicenseHash] = useState("");
@@ -564,7 +540,7 @@ export default function Home() {
             )}
           </section>
 
-          {/* CARD 2: Similarity Checker */}
+          {/* CARD 2: Originality Checker */}
           <section className="rounded-3xl border border-zinc-800/70 bg-[#0a0a0d]/80 backdrop-blur-md p-8 sm:p-10 flex flex-col gap-6 shadow-2xl shadow-black/50">
             <div className="flex items-center justify-between border-b border-zinc-800/50 pb-5">
               <div className="flex items-center gap-2.5">
@@ -572,73 +548,103 @@ export default function Home() {
                   02
                 </div>
                 <div>
-                  <h2 className="text-sm font-medium text-zinc-200 font-heading">Hamming Distance Checker</h2>
-                  <p className="text-[11px] text-zinc-400 font-mono">Bitwise similarity analysis for content hashes</p>
+                  <h2 className="text-sm font-medium text-zinc-200 font-heading">Originality Checker</h2>
+                  <p className="text-[11px] text-zinc-400 font-mono">Verify if an image is already claimed on Kredence</p>
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-col gap-2.5">
-              <input
-                type="text"
-                value={simHash1}
-                onChange={(e) => setSimHash1(e.target.value.trim())}
-                placeholder="Primary pHash (64 hex characters)"
-                maxLength={64}
-                className="rounded-xl border border-zinc-800 bg-zinc-950 px-3.5 py-2.5 text-xs font-mono text-zinc-200 placeholder-zinc-400 focus:border-indigo-800/70 focus:outline-none transition-colors"
-              />
-              <input
-                type="text"
-                value={simHash2}
-                onChange={(e) => setSimHash2(e.target.value.trim())}
-                placeholder="Secondary pHash (64 hex characters)"
-                maxLength={64}
-                className="rounded-xl border border-zinc-800 bg-zinc-950 px-3.5 py-2.5 text-xs font-mono text-zinc-200 placeholder-zinc-400 focus:border-indigo-800/70 focus:outline-none transition-colors"
-              />
-            </div>
-
-            {pHash && (
-              <div className="flex gap-3 text-[11px] font-mono text-indigo-300/80">
-                <button
-                  onClick={() => setSimHash1(pHash)}
-                  className="hover:underline transition-all"
-                >
-                  Set Hash 1 from current file
-                </button>
-                <span>·</span>
-                <button
-                  onClick={() => setSimHash2(pHash)}
-                  className="hover:underline transition-all"
-                >
-                  Set Hash 2 from current file
-                </button>
-              </div>
-            )}
-
-            <button
-              onClick={handleCheckSimilarity}
-              disabled={isSimChecking || simHash1.length !== 64 || simHash2.length !== 64}
-              className="rounded-xl border border-indigo-700/50 bg-indigo-900/40 hover:bg-indigo-800/50 px-4 py-2.5 text-xs font-medium text-indigo-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            {/* Upload Dropzone for Checker */}
+            <div
+              onDrop={handleCheckerFileDrop}
+              onDragOver={(e) => e.preventDefault()}
+              onClick={() => checkerFileInputRef.current?.click()}
+              className={`relative rounded-xl border border-dashed p-5 text-center cursor-pointer transition-all ${
+                checkerResult?.claimed === false
+                  ? "border-emerald-800/50 bg-emerald-950/10"
+                  : checkerResult?.claimed === true
+                  ? "border-amber-800/50 bg-amber-950/10"
+                  : checkerHash
+                  ? "border-indigo-800/40 bg-indigo-950/10"
+                  : "border-zinc-800 bg-zinc-900/30 hover:border-zinc-700 hover:bg-zinc-900/50"
+              }`}
             >
-              {isSimChecking ? "Calculating..." : "Compute Similarity"}
-            </button>
-
-            {simResult && (
-              <div className={`rounded-xl border p-3.5 flex flex-col gap-2.5 ${simResult.bg}`}>
-                <div className="flex items-center justify-between text-xs">
-                  <span className={`font-mono font-medium ${simResult.color}`}>{simResult.label}</span>
-                  <span className="font-mono text-zinc-400">{simResult.distance} / 256 bits</span>
-                </div>
-                <div className="h-1.5 w-full rounded-full bg-zinc-950/80 overflow-hidden">
-                  <div
-                    className={`h-full transition-all duration-500 ${simResult.progressBg}`}
-                    style={{ width: `${simResult.percent}%` }}
+              {checkerPreviewUrl ? (
+                <div className="flex items-center gap-4 text-left">
+                  <img
+                    src={checkerPreviewUrl}
+                    alt="preview"
+                    className="h-14 w-14 rounded-lg object-cover border border-zinc-800 flex-shrink-0"
                   />
+                  <div className="min-w-0 flex-1 flex flex-col justify-center">
+                    <p className="text-[13px] font-medium text-zinc-200 truncate">
+                      {checkerFile?.name}
+                    </p>
+                    <p className="text-[11px] font-mono text-zinc-500 truncate mt-1">
+                      Hash: {checkerHash.slice(0, 12)}...{checkerHash.slice(-12)}
+                    </p>
+                  </div>
                 </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-2">
+                  <svg className="w-8 h-8 text-zinc-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <p className="text-sm font-medium text-zinc-300">
+                    Select or drop an image to check
+                  </p>
+                  <p className="text-[11px] text-zinc-500 mt-1">
+                    SHA-256 hash is computed instantly in browser
+                  </p>
+                </div>
+              )}
+              <input
+                ref={checkerFileInputRef}
+                type="file"
+                className="hidden"
+                accept="image/*"
+                onChange={handleCheckerFileChange}
+              />
+            </div>
+
+            {/* Checker Results */}
+            {checkerResult && (
+              <div
+                className={`rounded-xl border p-4 flex flex-col gap-2 ${
+                  checkerResult.claimed
+                    ? "border-amber-900/50 bg-amber-950/20"
+                    : "border-emerald-900/50 bg-emerald-950/20"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`h-2 w-2 rounded-full ${
+                      checkerResult.claimed ? "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]" : "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"
+                    }`}
+                  />
+                  <span className={`text-[13px] font-medium ${checkerResult.claimed ? "text-amber-200" : "text-emerald-200"}`}>
+                    {checkerResult.claimed ? "Already Claimed" : "Unclaimed (Original)"}
+                  </span>
+                </div>
+                
+                <p className={`text-[11px] ${checkerResult.claimed ? "text-amber-200/70" : "text-emerald-200/70"}`}>
+                  {checkerResult.claimed
+                    ? "This image is already registered on the Kredence protocol."
+                    : "This image has not been registered. You can claim it using the Commit & Mint card above."}
+                </p>
+
+                {checkerResult.claimed && checkerResult.creator && (
+                  <div className="mt-2 pt-2 border-t border-amber-900/30 flex flex-col gap-1 text-[11px] font-mono text-amber-200/80">
+                    <p>Creator: {checkerResult.creator}</p>
+                    {checkerResult.timestamp && (
+                      <p>Date: {new Date(checkerResult.timestamp * 1000).toLocaleString()}</p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
-            <StatusBanner status={simStatus} />
+            <StatusBanner status={checkerStatus} />
           </section>
 
           {/* CARD 3: Purchase License */}
