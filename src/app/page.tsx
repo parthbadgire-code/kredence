@@ -325,37 +325,25 @@ export default function Home() {
     [processCheckerFile]
   );
 
-  // ── Section 3: Purchase License State ───────────────────────
-  const [licenseHash, setLicenseHash] = useState("");
   const [isBuying, setIsBuying] = useState(false);
   const [licenseTx, setLicenseTx] = useState("");
-  const [licenseStatus, setLicenseStatus] = useState<StatusState>({ message: "", type: "idle" });
-
+  
   const handleBuyLicense = async () => {
-    if (!connected || !publicKey || licenseHash.length !== 64) return;
+    if (!connected || !publicKey || !checkerHash || !checkerResult?.creator) return;
     const program = getProgram();
     if (!program) return;
 
     setIsBuying(true);
     setLicenseTx("");
-    setLicenseStatus({ message: "Resolving on-chain content record...", type: "loading" });
+    setCheckerStatus({ message: "Processing 0.1 SOL license transfer...", type: "loading" });
 
     try {
-      const [pda] = deriveContentRecordPDA(licenseHash);
-      let creatorWallet: web3.PublicKey;
-
-      try {
-        const record = await (program.account as any).contentRecord.fetch(pda);
-        creatorWallet = record.creator as web3.PublicKey;
-      } catch {
-        throw new Error("No record found for this pHash on-chain.");
-      }
+      const [pda] = deriveContentRecordPDA(checkerHash);
+      const creatorWallet = new web3.PublicKey(checkerResult.creator);
 
       if (creatorWallet.equals(publicKey)) {
         throw new Error("Self-licensing is not supported for your own wallet.");
       }
-
-      setLicenseStatus({ message: "Processing 0.1 SOL license transfer...", type: "loading" });
 
       const sig = await (program.methods as any)
         .purchaseLicense(new BN(100_000_000))
@@ -368,12 +356,12 @@ export default function Home() {
         .rpc();
 
       setLicenseTx(sig);
-      setLicenseStatus({
+      setCheckerStatus({
         message: `License issued. 0.1 SOL transferred to creator (${truncateSig(creatorWallet.toString())}).`,
         type: "success",
       });
     } catch (err: any) {
-      setLicenseStatus({ message: `Transfer failed: ${err?.message ?? "Unknown error"}`, type: "error" });
+      setCheckerStatus({ message: `Transfer failed: ${err?.message ?? "Unknown error"}`, type: "error" });
     } finally {
       setIsBuying(false);
     }
@@ -610,91 +598,66 @@ export default function Home() {
             {/* Checker Results */}
             {checkerResult && (
               <div
-                className={`rounded-xl border p-4 flex flex-col gap-2 ${
+                className={`rounded-xl border p-4 flex flex-col gap-3 ${
                   checkerResult.claimed
                     ? "border-amber-900/50 bg-amber-950/20"
                     : "border-emerald-900/50 bg-emerald-950/20"
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <div
-                    className={`h-2 w-2 rounded-full ${
-                      checkerResult.claimed ? "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]" : "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"
-                    }`}
-                  />
-                  <span className={`text-[13px] font-medium ${checkerResult.claimed ? "text-amber-200" : "text-emerald-200"}`}>
-                    {checkerResult.claimed ? "Already Claimed" : "Unclaimed (Original)"}
-                  </span>
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`h-2 w-2 rounded-full ${
+                        checkerResult.claimed ? "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]" : "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"
+                      }`}
+                    />
+                    <span className={`text-[13px] font-medium ${checkerResult.claimed ? "text-amber-200" : "text-emerald-200"}`}>
+                      {checkerResult.claimed ? "Already Claimed" : "Unclaimed (Original)"}
+                    </span>
+                  </div>
+                  
+                  <p className={`text-[11px] ${checkerResult.claimed ? "text-amber-200/70" : "text-emerald-200/70"}`}>
+                    {checkerResult.claimed
+                      ? "This image is registered on the Kredence protocol. You can license it directly from the creator below."
+                      : "This image has not been registered. You can claim it using the Commit & Mint card above."}
+                  </p>
                 </div>
-                
-                <p className={`text-[11px] ${checkerResult.claimed ? "text-amber-200/70" : "text-emerald-200/70"}`}>
-                  {checkerResult.claimed
-                    ? "This image is already registered on the Kredence protocol."
-                    : "This image has not been registered. You can claim it using the Commit & Mint card above."}
-                </p>
 
                 {checkerResult.claimed && checkerResult.creator && (
-                  <div className="mt-2 pt-2 border-t border-amber-900/30 flex flex-col gap-1 text-[11px] font-mono text-amber-200/80">
-                    <p>Creator: {checkerResult.creator}</p>
-                    {checkerResult.timestamp && (
-                      <p>Date: {new Date(checkerResult.timestamp * 1000).toLocaleString()}</p>
-                    )}
+                  <div className="mt-1 pt-3 border-t border-amber-900/30 flex flex-col gap-3">
+                    <div className="flex flex-col gap-1 text-[11px] font-mono text-amber-200/80">
+                      <p>Creator: {checkerResult.creator}</p>
+                      {checkerResult.timestamp && (
+                        <p>Date: {new Date(checkerResult.timestamp * 1000).toLocaleString()}</p>
+                      )}
+                    </div>
+                    
+                    <button
+                      onClick={handleBuyLicense}
+                      disabled={!connected || isBuying || checkerResult.creator === publicKey?.toString()}
+                      className="rounded-xl border border-amber-700/50 bg-amber-900/40 hover:bg-amber-800/50 px-4 py-2.5 text-xs font-medium text-amber-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all mt-1"
+                    >
+                      {!connected 
+                        ? "Connect Wallet to License" 
+                        : checkerResult.creator === publicKey?.toString() 
+                        ? "You are the creator" 
+                        : isBuying 
+                        ? "Processing Transfer..." 
+                        : "Purchase License (0.1 SOL)"}
+                    </button>
                   </div>
                 )}
               </div>
             )}
 
             <StatusBanner status={checkerStatus} />
-          </section>
-
-          {/* CARD 3: Purchase License */}
-          <section className="rounded-3xl border border-zinc-800/70 bg-[#0a0a0d]/80 backdrop-blur-md p-8 sm:p-10 flex flex-col gap-6 shadow-2xl shadow-black/50">
-            <div className="flex items-center justify-between border-b border-zinc-800/50 pb-5">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-950/40 border border-emerald-800/40 text-emerald-200 text-xs font-mono">
-                  03
-                </div>
-                <div>
-                  <h2 className="text-sm font-medium text-zinc-200 font-heading">Content Licensing</h2>
-                  <p className="text-[11px] text-zinc-400 font-mono">Direct 0.1 SOL royalty transfer to creator</p>
-                </div>
-              </div>
-            </div>
-
-            <input
-              type="text"
-              value={licenseHash}
-              onChange={(e) => setLicenseHash(e.target.value.trim())}
-              placeholder="Target content pHash (64 hex characters)"
-              maxLength={64}
-              className="rounded-xl border border-zinc-800 bg-zinc-950 px-3.5 py-2.5 text-xs font-mono text-zinc-200 placeholder-zinc-400 focus:border-emerald-800/70 focus:outline-none transition-colors"
-            />
-
-            {pHash && licenseHash !== pHash && (
-              <button
-                onClick={() => setLicenseHash(pHash)}
-                className="self-start text-[11px] font-mono text-emerald-300/80 hover:underline transition-all"
-              >
-                Use current file hash
-              </button>
-            )}
-
-            <button
-              onClick={handleBuyLicense}
-              disabled={!connected || isBuying || licenseHash.length !== 64}
-              className="rounded-xl border border-emerald-700/50 bg-emerald-900/40 hover:bg-emerald-800/50 px-4 py-2.5 text-xs font-medium text-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-            >
-              {!connected ? "Connect Wallet to Purchase" : isBuying ? "Processing Transfer..." : "Purchase License (0.1 SOL)"}
-            </button>
-
-            <StatusBanner status={licenseStatus} />
-
+            
             {licenseTx && (
               <a
                 href={getExplorerUrl(licenseTx)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[11px] font-mono text-emerald-300/80 hover:text-emerald-200 transition-colors"
+                className="text-[11px] font-mono text-amber-300/80 hover:text-amber-200 transition-colors border-t border-zinc-800/40 pt-2"
               >
                 → License Tx: {truncateSig(licenseTx)}
               </a>
