@@ -1,7 +1,7 @@
 import { PublicKey } from "@solana/web3.js";
 
 export const PROGRAM_ID = new PublicKey(
-  "J8zY5tEUxTsz5U6EUPyreRn4vU2ZrxutWAWZtxyJptbp"
+  process.env.NEXT_PUBLIC_PROGRAM_ID || "J8zY5tEUxTsz5U6EUPyreRn4vU2ZrxutWAWZtxyJptbp"
 );
 
 export const BUBBLEGUM_PROGRAM_ID = new PublicKey(

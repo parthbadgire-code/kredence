@@ -63,8 +63,8 @@ pub mod anchor_kredence {
         // CPI to Metaplex Bubblegum to mint a cNFT
         // Construct the raw instruction to avoid dependency hell
         let mut data = vec![];
-        // Discriminator for MintV1 is [145, 98, 192, 118, 214, 253, 140, 197]
-        data.extend_from_slice(&[145, 98, 192, 118, 214, 253, 140, 197]);
+        // Discriminator for MintV1 is [145, 98, 192, 118, 184, 147, 118, 104] (sha256("global:mint_v1")[..8])
+        data.extend_from_slice(&[145, 98, 192, 118, 184, 147, 118, 104]);
 
         let metadata = MetadataArgs {
             name: "Kredence Original Content".to_string(),

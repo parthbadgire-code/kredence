@@ -9,8 +9,11 @@ skip-lint = false
 [programs.localnet]
 anchor_kredence = "J8zY5tEUxTsz5U6EUPyreRn4vU2ZrxutWAWZtxyJptbp"
 
+[programs.devnet]
+anchor_kredence = "J8zY5tEUxTsz5U6EUPyreRn4vU2ZrxutWAWZtxyJptbp"
+
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

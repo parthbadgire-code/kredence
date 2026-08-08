@@ -1,29 +1,72 @@
 # Kredence 🛡️
 
-**Kredence** is a fully functional, decentralized content registry and licensing protocol built on Solana. It solves two major problems for digital creators: proving that they created an asset first, and getting paid directly when someone else wants to license and use it.
+**Kredence** is a decentralized, on-chain protocol built on Solana that protects digital creators by establishing immutable proof of originality and providing a trustless licensing mechanism. 
 
-## 🌟 Core Features
+## 🚨 The Problem
+In the modern digital landscape, content is easily stolen. Memes are reposted without credit, digital art is scraped and sold, and timestamps on centralized platforms (like Instagram or Twitter) can be faked, manipulated, or lost if the platform shuts down. Creators have no mathematically verifiable way to prove they were the original author, nor an easy way to get paid when their content goes viral.
 
-- **In-Browser Hashing:** Images are hashed locally in your browser using SHA-256 (pHash generation) so unminted raw files never hit a centralized server before protection is verified.
-- **On-Chain Originality Proof:** Securely stores the cryptographic fingerprint of your image on the Solana blockchain inside a Program Derived Address (PDA) to prove who registered it first.
-- **Compressed NFTs (cNFTs):** Uses Metaplex Bubblegum to instantly mint a compressed NFT to the creator's wallet. This acts as an immutable, gas-efficient receipt of ownership.
-- **Trustless Licensing:** A secure payment gateway that enforces licensing rules, preventing self-licensing, and guaranteeing that a 0.1 SOL royalty is routed directly to the original creator's wallet.
-- **IPFS Storage:** Metadata is securely pinned to IPFS via Pinata.
+## 💡 The Kredence Solution
+Kredence leverages Solana's high throughput and low costs to solve this through a **Commit-Reveal scheme combined with Compressed NFTs (cNFTs)**.
 
-## 🏛️ Architecture
+1. **In-Browser Hashing**: We generate a unique SHA-256 fingerprint (pHash) of an image entirely locally. Your unminted art never hits a centralized server before protection is verified.
+2. **Immutable Commitment**: We store this fingerprint in a Solana Program Derived Address (PDA). The blockchain timestamps this transaction forever.
+3. **cNFT Receipts**: The protocol issues a gas-efficient compressed NFT to the creator's wallet acting as a verifiable receipt.
+4. **Trustless Licensing**: Any buyer can verify if an image is claimed and purchase a license in one click, routing a 0.1 SOL royalty directly to the original creator.
 
-### 1. The Smart Contract (Rust / Anchor)
-The Anchor program (`anchor_kredence`) handles the core logic and CPIs (Cross-Program Invocations):
-- `commit_content`: Registers the image hash securely on-chain.
-- `reveal_and_mint`: Executes a CPI to Metaplex Bubblegum to mint a cNFT to a shared public Merkle Tree.
-- `purchase_license`: Securely transfers 0.1 SOL from a buyer to the verified creator.
+## 🏗️ Architecture Flow
 
-### 2. The Web Application (Next.js / TailwindCSS)
-The UI abstracts away the blockchain complexity into a sleek, dark-mode experience with two main actions:
-- **Card 1 (Commit & Mint - For Creators)**: Drag-and-drop an image to automatically hash it, upload to IPFS, and mint the receipt on Solana.
-- **Card 2 (Verify & License - For Buyers)**: Drag-and-drop any image to instantly query the blockchain. If the image is claimed, it reveals the creator's wallet and provides a 1-click "Purchase License" button.
+```ascii
++-------------+      (1) Upload       +------------------+
+|             | --------------------> |                  |
+|   Creator   |                       |    IPFS /        |
+|   Wallet    | <-------------------- |    Pinata        |
+|             |      (2) File URI     +------------------+
++------+------+
+       |
+       | (3) Hash + URI + Commit 
+       v
++-----------------------------+
+|    Kredence Anchor          |
+|    Smart Contract           |
++------+---------------+------+
+       |               |
+       | (4) Save PDA  | (5) CPI Mint
+       v               v
++------------+  +-----------------+
+| Content    |  | Metaplex        |
+| Record PDA |  | Bubblegum       |
+| (On-Chain) |  | Program         |
++------------+  +--------+--------+
+                         |
+                         | (6) Issue cNFT
+                         v
+                  +-------------+
+                  |             |
+                  |   Merkle    |
+                  |   Tree      |
+                  |             |
+                  +-------------+
+                         
++-------------+                        +------------+
+|             | (7) Check Originality  |            |
+|   Buyer     | ---------------------> |  Kredence  |
+|   Wallet    | <--------------------- |  Frontend  |
+|             | (8) Royalty (0.1 SOL)  |            |
++-------------+ ---------------------> +------------+
+                                        (Pays Creator)
+```
 
-## 🚀 Getting Started (Localnet)
+## 🔬 Technical Highlights
+
+### 1. Deterministic PDA Collision Prevention
+The core state of Kredence is the `ContentRecord` PDA. The seed for this PDA is the actual SHA-256 hash of the image. Because the hash acts as the seed, **it is mathematically impossible to register the same image twice**. The smart contract will automatically reject any subsequent transaction trying to initialize a PDA that already exists, ensuring the original creator's timestamp is preserved forever.
+
+### 2. State Rent Optimization via cNFTs
+Traditional NFTs on Solana cost roughly ~0.012 SOL in state rent because they store data in individual accounts. Kredence utilizes **Metaplex Bubblegum** to mint Compressed NFTs (cNFTs) into a shared public Merkle Tree. This pushes the state into the ledger (rather than active RAM), dropping the minting cost to a fraction of a cent per NFT. This makes Kredence scalable for millions of digital assets.
+
+## 🚀 Local Setup Instructions
+
+If you'd like to test the Kredence dApp locally, follow these steps:
 
 ### Prerequisites
 - Node.js 18+

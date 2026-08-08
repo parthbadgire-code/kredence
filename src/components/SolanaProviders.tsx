@@ -8,8 +8,11 @@ import { PhantomWalletAdapter, SolflareWalletAdapter } from "@solana/wallet-adap
 require("@solana/wallet-adapter-react-ui/styles.css");
 
 export default function SolanaProviders({ children }: { children: React.ReactNode }) {
-  // Use Localnet for testing
-  const endpoint = useMemo(() => "http://127.0.0.1:8899", []);
+  // Use Devnet for production/testing
+  const endpoint = useMemo(
+    () => process.env.NEXT_PUBLIC_RPC_URL || "https://api.devnet.solana.com",
+    []
+  );
 
   const wallets = useMemo(
     () => [new PhantomWalletAdapter(), new SolflareWalletAdapter()],

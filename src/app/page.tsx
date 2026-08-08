@@ -26,7 +26,7 @@ interface StatusState {
 // ─── Helpers ──────────────────────────────────────────────────
 const truncateSig = (s: string) => `${s.slice(0, 6)}…${s.slice(-6)}`;
 const getExplorerUrl = (sig: string) =>
-  `https://explorer.solana.com/tx/${sig}?cluster=custom&customUrl=http%3A%2F%2F127.0.0.1%3A8899`;
+  `https://explorer.solana.com/tx/${sig}?cluster=devnet`;
 
 // ─── Status Message Component ─────────────────────────────────
 function StatusBanner({ status }: { status: StatusState }) {
@@ -379,7 +379,7 @@ export default function Home() {
         <header className="flex flex-col items-center text-center gap-4">
           <div className="flex items-center gap-2 rounded-full border border-zinc-800/80 bg-zinc-900/40 px-4 py-1.5 text-xs font-mono text-zinc-400 backdrop-blur-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-purple-300/80" />
-            Solana Localnet Protocol
+            Solana Devnet Protocol
           </div>
           <h1 className="text-5xl sm:text-6xl font-bold tracking-tight text-zinc-100 font-heading">
             Kredence
