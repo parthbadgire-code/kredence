@@ -4,7 +4,7 @@ import { createTree } from "@metaplex-foundation/mpl-bubblegum";
 import * as fs from "fs";
 
 async function main() {
-  const umi = createUmi("http://127.0.0.1:8899");
+  const umi = createUmi("https://api.devnet.solana.com");
   
   // Use local solana keypair
   const secretKey = new Uint8Array(

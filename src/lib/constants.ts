@@ -17,7 +17,7 @@ export const SPL_ACCOUNT_COMPRESSION_ID = new PublicKey(
 );
 
 export const MERKLE_TREE_ADDRESS = new PublicKey(
-  "DQ8KRB2sm3a4hfovUfmxugFSZDXMgRiDXmUEFWsTHtqr"
+  "2mqhJoNYHuAfTQD2prVPUiNbtTCYVZ48Y5rWy1VciNYM"
 );
 
 /** Derives the ContentRecord PDA for a given pHash.
