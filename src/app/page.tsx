@@ -23,6 +23,14 @@ interface StatusState {
   type: StatusType;
 }
 
+interface HistoryItem {
+  pda: string;
+  hash: string;
+  status: string;
+  timestamp: number;
+  txSignature: string | null;
+}
+
 // ─── Helpers ──────────────────────────────────────────────────
 const truncateSig = (s: string) => `${s.slice(0, 6)}…${s.slice(-6)}`;
 const getExplorerUrl = (sig: string) =>
@@ -367,6 +375,69 @@ export default function Home() {
     }
   };
 
+  // ── Section 3: History State ─────────────────────────────────
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [hasFetchedHistory, setHasFetchedHistory] = useState(false);
+
+  const loadHistory = async () => {
+    if (!connected || !publicKey) return;
+    const program = getProgram();
+    if (!program) return;
+
+    setIsHistoryLoading(true);
+    try {
+      // 1. Fetch ContentRecord accounts where creator == connected wallet
+      const records = await (program.account as any).contentRecord.all([
+        {
+          memcmp: {
+            offset: 8, // Discriminator is 8 bytes, so creator pubkey starts at offset 8
+            bytes: publicKey.toBase58(),
+          },
+        },
+      ]);
+
+      // 2. Fetch the transaction signature for each record PDA to display in UI
+      const items: HistoryItem[] = await Promise.all(
+        records.map(async (recordObj: any) => {
+          const pda = recordObj.publicKey;
+          const data = recordObj.account;
+
+          let txSignature = null;
+          try {
+            const sigs = await connection.getSignaturesForAddress(pda, { limit: 5 });
+            if (sigs.length > 0) {
+              // The oldest signature in this small batch is typically the creation tx
+              txSignature = sigs[sigs.length - 1].signature;
+            }
+          } catch (e) {
+            console.error("Failed to fetch sig for", pda.toString(), e);
+          }
+
+          // Anchor parses enums as objects like { minted: {} }
+          const statusKey = Object.keys(data.status)[0] || "unknown";
+
+          return {
+            pda: pda.toString(),
+            hash: data.pHash,
+            status: statusKey,
+            timestamp: data.commitTime.toNumber(),
+            txSignature,
+          };
+        })
+      );
+
+      // 3. Sort by timestamp descending
+      items.sort((a, b) => b.timestamp - a.timestamp);
+      setHistory(items);
+      setHasFetchedHistory(true);
+    } catch (err) {
+      console.error("Failed to load history:", err);
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  };
+
   // ── Render ──────────────────────────────────────────────────
   return (
     <main className="relative min-h-screen bg-[#050505] text-[#e5e5e7] selection:bg-purple-900/40 selection:text-purple-200">
@@ -662,6 +733,76 @@ export default function Home() {
                 → License Tx: {truncateSig(licenseTx)}
               </a>
             )}
+          </section>
+
+          {/* CARD 3: My Claims History */}
+          <section className="rounded-3xl border border-zinc-800/70 bg-[#0a0a0d]/80 backdrop-blur-md p-8 sm:p-10 flex flex-col gap-6 shadow-2xl shadow-black/50">
+            <div className="flex items-center justify-between border-b border-zinc-800/50 pb-5">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sky-950/40 border border-sky-800/40 text-sky-200 text-xs font-mono">
+                  03
+                </div>
+                <div>
+                  <h2 className="text-sm font-medium text-zinc-200 font-heading">My Claims History</h2>
+                  <p className="text-[11px] text-zinc-400 font-mono">View your protected assets and on-chain transaction receipts</p>
+                </div>
+              </div>
+              <button
+                onClick={loadHistory}
+                disabled={!connected || isHistoryLoading}
+                className="rounded-xl px-4 py-2 text-xs font-medium bg-sky-900/40 hover:bg-sky-800/50 border border-sky-700/50 text-sky-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              >
+                {isHistoryLoading ? "Loading..." : "Load History"}
+              </button>
+            </div>
+
+            {!connected ? (
+              <div className="text-center py-6 text-zinc-500 text-sm font-medium">
+                Connect your wallet to view your history.
+              </div>
+            ) : hasFetchedHistory && history.length === 0 ? (
+              <div className="text-center py-6 text-zinc-500 text-sm font-medium">
+                No claimed images found for this wallet.
+              </div>
+            ) : history.length > 0 ? (
+              <div className="flex flex-col gap-3">
+                {history.map((item, idx) => (
+                  <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border border-zinc-800/50 bg-zinc-900/20 hover:bg-zinc-900/40 transition-colors">
+                    <div className="flex flex-col gap-1 text-[11px] font-mono">
+                      <p className="text-zinc-300">
+                        <span className="text-zinc-500">Hash: </span>
+                        {item.hash.slice(0, 16)}...{item.hash.slice(-16)}
+                      </p>
+                      <p className="text-zinc-400">
+                        <span className="text-zinc-500">Date: </span>
+                        {new Date(item.timestamp * 1000).toLocaleString()}
+                      </p>
+                    </div>
+                    
+                    <div className="flex flex-col sm:items-end gap-1.5">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase font-bold tracking-wider inline-flex items-center gap-1.5 self-start sm:self-end ${
+                        item.status.toLowerCase() === 'minted' 
+                          ? "bg-emerald-950/40 text-emerald-300 border border-emerald-800/50" 
+                          : "bg-purple-950/40 text-purple-300 border border-purple-800/50"
+                      }`}>
+                        <span className={`h-1 w-1 rounded-full ${item.status.toLowerCase() === 'minted' ? "bg-emerald-400" : "bg-purple-400"}`} />
+                        {item.status}
+                      </span>
+                      {item.txSignature && (
+                        <a
+                          href={getExplorerUrl(item.txSignature)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[11px] font-mono text-sky-400/80 hover:text-sky-300 transition-colors"
+                        >
+                          Tx: {truncateSig(item.txSignature)} ↗
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </section>
 
         </div>
