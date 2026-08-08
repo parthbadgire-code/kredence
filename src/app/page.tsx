@@ -176,16 +176,20 @@ export default function Home() {
       setPHash(hash);
 
       // Pre-flight check: see if PDA exists
-      const [pda] = deriveContentRecordPDA(hash);
-      const info = await connection.getAccountInfo(pda);
-      if (info) {
-        setIsDuplicate(true);
-        setCommitStatus({
-          message: "Account already exists on-chain for this hash (duplicate content).",
-          type: "warn",
-        });
-      } else {
-        setIsDuplicate(false);
+      try {
+        const [pda] = deriveContentRecordPDA(hash);
+        const info = await connection.getAccountInfo(pda);
+        if (info) {
+          setIsDuplicate(true);
+          setCommitStatus({
+            message: "Account already exists on-chain for this hash (duplicate content).",
+            type: "warn",
+          });
+        } else {
+          setIsDuplicate(false);
+          setCommitStatus({ message: "Content hash ready for on-chain commitment.", type: "success" });
+        }
+      } catch {
         setCommitStatus({ message: "Content hash ready for on-chain commitment.", type: "success" });
       }
     },
@@ -400,11 +404,11 @@ export default function Home() {
 
   // ── Render ──────────────────────────────────────────────────
   return (
-    <main className="relative min-h-screen bg-[#050505] text-[#e5e5e7] selection:bg-purple-900/40 selection:text-purple-200 overflow-hidden">
-      {/* Interactive 3D Three.js Background */}
+    <main className="relative min-h-screen bg-[#050505] text-[#e5e5e7] selection:bg-purple-900/40 selection:text-purple-200">
+      {/* Background ambient particles (fixed, subtle, non-intrusive) */}
       <BackgroundCanvas />
 
-      <div className="relative z-10 mx-auto max-w-xl px-4 py-12 flex flex-col gap-10">
+      <div className="relative z-10 mx-auto max-w-xl px-4 py-12 flex flex-col gap-8">
 
         {/* Header / Brand */}
         <header className="flex flex-col items-center text-center gap-3">
@@ -437,265 +441,260 @@ export default function Home() {
           )}
         </div>
 
-        {!connected ? (
-          <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/20 p-8 text-center">
-            <p className="text-xs font-mono text-zinc-400">Connect a wallet above to interact with the protocol.</p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-6">
+        {/* CARDS (ALWAYS VISIBLE) */}
+        <div className="flex flex-col gap-6">
 
-            {/* CARD 1: Commit & Mint */}
-            <section className="rounded-2xl border border-zinc-800/70 bg-[#0a0a0d] p-6 flex flex-col gap-5">
-              <div className="flex items-center justify-between border-b border-zinc-800/50 pb-4">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-950/40 border border-purple-800/40 text-purple-200 text-xs font-mono">
-                    01
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-medium text-zinc-200 font-heading">Commit &amp; Mint Content</h2>
-                    <p className="text-[11px] text-zinc-400 font-mono">Hash generation, PDA commitment &amp; cNFT creation</p>
-                  </div>
+          {/* CARD 1: Commit & Mint */}
+          <section className="rounded-2xl border border-zinc-800/70 bg-[#0a0a0d] p-6 flex flex-col gap-5">
+            <div className="flex items-center justify-between border-b border-zinc-800/50 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-950/40 border border-purple-800/40 text-purple-200 text-xs font-mono">
+                  01
+                </div>
+                <div>
+                  <h2 className="text-sm font-medium text-zinc-200 font-heading">Commit &amp; Mint Content</h2>
+                  <p className="text-[11px] text-zinc-400 font-mono">Hash generation, PDA commitment &amp; cNFT creation</p>
                 </div>
               </div>
+            </div>
 
-              {/* Upload Dropzone */}
-              <div
-                onDrop={handleFileDrop}
-                onDragOver={(e) => e.preventDefault()}
-                onClick={() => fileInputRef.current?.click()}
-                className={`relative rounded-xl border border-dashed p-5 text-center cursor-pointer transition-all ${
-                  isDuplicate
-                    ? "border-amber-800/50 bg-amber-950/10"
-                    : pHash
-                    ? "border-purple-800/40 bg-purple-950/10"
-                    : "border-zinc-800 bg-zinc-900/30 hover:border-zinc-700 hover:bg-zinc-900/50"
+            {/* Upload Dropzone */}
+            <div
+              onDrop={handleFileDrop}
+              onDragOver={(e) => e.preventDefault()}
+              onClick={() => fileInputRef.current?.click()}
+              className={`relative rounded-xl border border-dashed p-5 text-center cursor-pointer transition-all ${
+                isDuplicate
+                  ? "border-amber-800/50 bg-amber-950/10"
+                  : pHash
+                  ? "border-purple-800/40 bg-purple-950/10"
+                  : "border-zinc-800 bg-zinc-900/30 hover:border-zinc-700 hover:bg-zinc-900/50"
+              }`}
+            >
+              {previewUrl ? (
+                <div className="flex items-center gap-4 text-left">
+                  <img
+                    src={previewUrl}
+                    alt="preview"
+                    className="h-14 w-14 rounded-lg object-cover border border-zinc-800 flex-shrink-0"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-zinc-200 truncate">{file?.name}</p>
+                    {pHash && (
+                      <p className="text-[11px] font-mono text-zinc-400 mt-0.5 truncate">
+                        pHash: {pHash.slice(0, 24)}…
+                      </p>
+                    )}
+                    {isDuplicate && (
+                      <p className="text-[11px] font-mono text-amber-300/90 mt-1">
+                        ⚠️ Duplicate registered on-chain
+                      </p>
+                    )}
+                  </div>
+                  <span className="text-[11px] text-zinc-400 font-mono flex-shrink-0">Replace</span>
+                </div>
+              ) : (
+                <div className="py-6 flex flex-col items-center gap-1.5">
+                  <p className="text-xs font-medium text-zinc-300">Select or drop media file</p>
+                  <p className="text-[11px] font-mono text-zinc-400">PNG, JPG, WEBP — processed locally via SHA-256</p>
+                </div>
+              )}
+              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={handleCommit}
+                disabled={!connected || !pHash || isCommitting || committed || isDuplicate}
+                className={`rounded-xl px-4 py-2.5 text-xs font-medium transition-all ${
+                  committed
+                    ? "border border-purple-800/40 bg-purple-950/30 text-purple-200 cursor-default"
+                    : isDuplicate
+                    ? "border border-zinc-800 bg-zinc-900/40 text-zinc-400 cursor-not-allowed"
+                    : "bg-purple-900/50 hover:bg-purple-800/60 border border-purple-700/50 text-purple-100 disabled:opacity-40 disabled:cursor-not-allowed"
                 }`}
               >
-                {previewUrl ? (
-                  <div className="flex items-center gap-4 text-left">
-                    <img
-                      src={previewUrl}
-                      alt="preview"
-                      className="h-14 w-14 rounded-lg object-cover border border-zinc-800 flex-shrink-0"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-medium text-zinc-200 truncate">{file?.name}</p>
-                      {pHash && (
-                        <p className="text-[11px] font-mono text-zinc-400 mt-0.5 truncate">
-                          pHash: {pHash.slice(0, 24)}…
-                        </p>
-                      )}
-                      {isDuplicate && (
-                        <p className="text-[11px] font-mono text-amber-300/90 mt-1">
-                          ⚠️ Duplicate registered on-chain
-                        </p>
-                      )}
-                    </div>
-                    <span className="text-[11px] text-zinc-400 font-mono flex-shrink-0">Replace</span>
-                  </div>
-                ) : (
-                  <div className="py-6 flex flex-col items-center gap-1.5">
-                    <p className="text-xs font-medium text-zinc-300">Select or drop media file</p>
-                    <p className="text-[11px] font-mono text-zinc-400">PNG, JPG, WEBP — processed locally via SHA-256</p>
-                  </div>
-                )}
-                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
-              </div>
-
-              {/* Action Buttons */}
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={handleCommit}
-                  disabled={!pHash || isCommitting || committed || isDuplicate}
-                  className={`rounded-xl px-4 py-2.5 text-xs font-medium transition-all ${
-                    committed
-                      ? "border border-purple-800/40 bg-purple-950/30 text-purple-200 cursor-default"
-                      : isDuplicate
-                      ? "border border-zinc-800 bg-zinc-900/40 text-zinc-400 cursor-not-allowed"
-                      : "bg-purple-900/50 hover:bg-purple-800/60 border border-purple-700/50 text-purple-100 disabled:opacity-40 disabled:cursor-not-allowed"
-                  }`}
-                >
-                  {committed ? "✓ 1. Committed" : isCommitting ? "Committing..." : "1. Commit Content"}
-                </button>
-
-                <button
-                  onClick={handleMint}
-                  disabled={!committed || isMinting || !metadataUri || minted}
-                  className={`rounded-xl px-4 py-2.5 text-xs font-medium transition-all ${
-                    minted
-                      ? "border border-emerald-800/40 bg-emerald-950/30 text-emerald-200 cursor-default"
-                      : committed && !metadataUri
-                      ? "border border-zinc-800 bg-zinc-900/40 text-zinc-400 cursor-wait"
-                      : "bg-emerald-900/50 hover:bg-emerald-800/60 border border-emerald-700/50 text-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed"
-                  }`}
-                >
-                  {minted ? "✓ 2. Minted" : isMinting ? "Minting..." : committed && !metadataUri ? "Pinning IPFS..." : "2. Mint cNFT"}
-                </button>
-              </div>
-
-              {/* Status Banner */}
-              <StatusBanner status={commitStatus} />
-
-              {/* Explorer Links */}
-              {(commitTx || mintTx) && (
-                <div className="flex flex-col gap-1.5 pt-1 border-t border-zinc-800/40">
-                  {commitTx && (
-                    <a
-                      href={getExplorerUrl(commitTx)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[11px] font-mono text-purple-300/80 hover:text-purple-200 transition-colors"
-                    >
-                      → Commit Tx: {truncateSig(commitTx)}
-                    </a>
-                  )}
-                  {mintTx && (
-                    <a
-                      href={getExplorerUrl(mintTx)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[11px] font-mono text-emerald-300/80 hover:text-emerald-200 transition-colors"
-                    >
-                      → Mint Tx: {truncateSig(mintTx)}
-                    </a>
-                  )}
-                </div>
-              )}
-            </section>
-
-            {/* CARD 2: Similarity Checker */}
-            <section className="rounded-2xl border border-zinc-800/70 bg-[#0a0a0d] p-6 flex flex-col gap-4">
-              <div className="flex items-center justify-between border-b border-zinc-800/50 pb-4">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-950/40 border border-indigo-800/40 text-indigo-200 text-xs font-mono">
-                    02
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-medium text-zinc-200 font-heading">Hamming Distance Checker</h2>
-                    <p className="text-[11px] text-zinc-400 font-mono">Bitwise similarity analysis for content hashes</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-2.5">
-                <input
-                  type="text"
-                  value={simHash1}
-                  onChange={(e) => setSimHash1(e.target.value.trim())}
-                  placeholder="Primary pHash (64 hex characters)"
-                  maxLength={64}
-                  className="rounded-xl border border-zinc-800 bg-zinc-950 px-3.5 py-2.5 text-xs font-mono text-zinc-200 placeholder-zinc-400 focus:border-indigo-800/70 focus:outline-none transition-colors"
-                />
-                <input
-                  type="text"
-                  value={simHash2}
-                  onChange={(e) => setSimHash2(e.target.value.trim())}
-                  placeholder="Secondary pHash (64 hex characters)"
-                  maxLength={64}
-                  className="rounded-xl border border-zinc-800 bg-zinc-950 px-3.5 py-2.5 text-xs font-mono text-zinc-200 placeholder-zinc-400 focus:border-indigo-800/70 focus:outline-none transition-colors"
-                />
-              </div>
-
-              {pHash && (
-                <div className="flex gap-3 text-[11px] font-mono text-indigo-300/80">
-                  <button
-                    onClick={() => setSimHash1(pHash)}
-                    className="hover:underline transition-all"
-                  >
-                    Set Hash 1 from current file
-                  </button>
-                  <span>·</span>
-                  <button
-                    onClick={() => setSimHash2(pHash)}
-                    className="hover:underline transition-all"
-                  >
-                    Set Hash 2 from current file
-                  </button>
-                </div>
-              )}
-
-              <button
-                onClick={handleCheckSimilarity}
-                disabled={isSimChecking || simHash1.length !== 64 || simHash2.length !== 64}
-                className="rounded-xl border border-indigo-700/50 bg-indigo-900/40 hover:bg-indigo-800/50 px-4 py-2.5 text-xs font-medium text-indigo-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-              >
-                {isSimChecking ? "Calculating..." : "Compute Similarity"}
+                {!connected ? "Connect Wallet" : committed ? "✓ 1. Committed" : isCommitting ? "Committing..." : "1. Commit Content"}
               </button>
 
-              {simResult && (
-                <div className={`rounded-xl border p-3.5 flex flex-col gap-2.5 ${simResult.bg}`}>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className={`font-mono font-medium ${simResult.color}`}>{simResult.label}</span>
-                    <span className="font-mono text-zinc-400">{simResult.distance} / 256 bits</span>
-                  </div>
-                  <div className="h-1.5 w-full rounded-full bg-zinc-950/80 overflow-hidden">
-                    <div
-                      className={`h-full transition-all duration-500 ${simResult.progressBg}`}
-                      style={{ width: `${simResult.percent}%` }}
-                    />
-                  </div>
+              <button
+                onClick={handleMint}
+                disabled={!connected || !committed || isMinting || !metadataUri || minted}
+                className={`rounded-xl px-4 py-2.5 text-xs font-medium transition-all ${
+                  minted
+                    ? "border border-emerald-800/40 bg-emerald-950/30 text-emerald-200 cursor-default"
+                    : committed && !metadataUri
+                    ? "border border-zinc-800 bg-zinc-900/40 text-zinc-400 cursor-wait"
+                    : "bg-emerald-900/50 hover:bg-emerald-800/60 border border-emerald-700/50 text-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                }`}
+              >
+                {!connected ? "Connect Wallet" : minted ? "✓ 2. Minted" : isMinting ? "Minting..." : committed && !metadataUri ? "Pinning IPFS..." : "2. Mint cNFT"}
+              </button>
+            </div>
+
+            {/* Status Banner */}
+            <StatusBanner status={commitStatus} />
+
+            {/* Explorer Links */}
+            {(commitTx || mintTx) && (
+              <div className="flex flex-col gap-1.5 pt-1 border-t border-zinc-800/40">
+                {commitTx && (
+                  <a
+                    href={getExplorerUrl(commitTx)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] font-mono text-purple-300/80 hover:text-purple-200 transition-colors"
+                  >
+                    → Commit Tx: {truncateSig(commitTx)}
+                  </a>
+                )}
+                {mintTx && (
+                  <a
+                    href={getExplorerUrl(mintTx)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] font-mono text-emerald-300/80 hover:text-emerald-200 transition-colors"
+                  >
+                    → Mint Tx: {truncateSig(mintTx)}
+                  </a>
+                )}
+              </div>
+            )}
+          </section>
+
+          {/* CARD 2: Similarity Checker */}
+          <section className="rounded-2xl border border-zinc-800/70 bg-[#0a0a0d] p-6 flex flex-col gap-4">
+            <div className="flex items-center justify-between border-b border-zinc-800/50 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-950/40 border border-indigo-800/40 text-indigo-200 text-xs font-mono">
+                  02
                 </div>
-              )}
-
-              <StatusBanner status={simStatus} />
-            </section>
-
-            {/* CARD 3: Purchase License */}
-            <section className="rounded-2xl border border-zinc-800/70 bg-[#0a0a0d] p-6 flex flex-col gap-4">
-              <div className="flex items-center justify-between border-b border-zinc-800/50 pb-4">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-950/40 border border-emerald-800/40 text-emerald-200 text-xs font-mono">
-                    03
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-medium text-zinc-200 font-heading">Content Licensing</h2>
-                    <p className="text-[11px] text-zinc-400 font-mono">Direct 0.1 SOL royalty transfer to creator</p>
-                  </div>
+                <div>
+                  <h2 className="text-sm font-medium text-zinc-200 font-heading">Hamming Distance Checker</h2>
+                  <p className="text-[11px] text-zinc-400 font-mono">Bitwise similarity analysis for content hashes</p>
                 </div>
               </div>
+            </div>
 
+            <div className="flex flex-col gap-2.5">
               <input
                 type="text"
-                value={licenseHash}
-                onChange={(e) => setLicenseHash(e.target.value.trim())}
-                placeholder="Target content pHash (64 hex characters)"
+                value={simHash1}
+                onChange={(e) => setSimHash1(e.target.value.trim())}
+                placeholder="Primary pHash (64 hex characters)"
                 maxLength={64}
-                className="rounded-xl border border-zinc-800 bg-zinc-950 px-3.5 py-2.5 text-xs font-mono text-zinc-200 placeholder-zinc-400 focus:border-emerald-800/70 focus:outline-none transition-colors"
+                className="rounded-xl border border-zinc-800 bg-zinc-950 px-3.5 py-2.5 text-xs font-mono text-zinc-200 placeholder-zinc-400 focus:border-indigo-800/70 focus:outline-none transition-colors"
               />
+              <input
+                type="text"
+                value={simHash2}
+                onChange={(e) => setSimHash2(e.target.value.trim())}
+                placeholder="Secondary pHash (64 hex characters)"
+                maxLength={64}
+                className="rounded-xl border border-zinc-800 bg-zinc-950 px-3.5 py-2.5 text-xs font-mono text-zinc-200 placeholder-zinc-400 focus:border-indigo-800/70 focus:outline-none transition-colors"
+              />
+            </div>
 
-              {pHash && licenseHash !== pHash && (
+            {pHash && (
+              <div className="flex gap-3 text-[11px] font-mono text-indigo-300/80">
                 <button
-                  onClick={() => setLicenseHash(pHash)}
-                  className="self-start text-[11px] font-mono text-emerald-300/80 hover:underline transition-all"
+                  onClick={() => setSimHash1(pHash)}
+                  className="hover:underline transition-all"
                 >
-                  Use current file hash
+                  Set Hash 1 from current file
                 </button>
-              )}
-
-              <button
-                onClick={handleBuyLicense}
-                disabled={isBuying || licenseHash.length !== 64}
-                className="rounded-xl border border-emerald-700/50 bg-emerald-900/40 hover:bg-emerald-800/50 px-4 py-2.5 text-xs font-medium text-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-              >
-                {isBuying ? "Processing Transfer..." : "Purchase License (0.1 SOL)"}
-              </button>
-
-              <StatusBanner status={licenseStatus} />
-
-              {licenseTx && (
-                <a
-                  href={getExplorerUrl(licenseTx)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[11px] font-mono text-emerald-300/80 hover:text-emerald-200 transition-colors"
+                <span>·</span>
+                <button
+                  onClick={() => setSimHash2(pHash)}
+                  className="hover:underline transition-all"
                 >
-                  → License Tx: {truncateSig(licenseTx)}
-                </a>
-              )}
-            </section>
+                  Set Hash 2 from current file
+                </button>
+              </div>
+            )}
 
-          </div>
-        )}
+            <button
+              onClick={handleCheckSimilarity}
+              disabled={isSimChecking || simHash1.length !== 64 || simHash2.length !== 64}
+              className="rounded-xl border border-indigo-700/50 bg-indigo-900/40 hover:bg-indigo-800/50 px-4 py-2.5 text-xs font-medium text-indigo-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >
+              {isSimChecking ? "Calculating..." : "Compute Similarity"}
+            </button>
+
+            {simResult && (
+              <div className={`rounded-xl border p-3.5 flex flex-col gap-2.5 ${simResult.bg}`}>
+                <div className="flex items-center justify-between text-xs">
+                  <span className={`font-mono font-medium ${simResult.color}`}>{simResult.label}</span>
+                  <span className="font-mono text-zinc-400">{simResult.distance} / 256 bits</span>
+                </div>
+                <div className="h-1.5 w-full rounded-full bg-zinc-950/80 overflow-hidden">
+                  <div
+                    className={`h-full transition-all duration-500 ${simResult.progressBg}`}
+                    style={{ width: `${simResult.percent}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            <StatusBanner status={simStatus} />
+          </section>
+
+          {/* CARD 3: Purchase License */}
+          <section className="rounded-2xl border border-zinc-800/70 bg-[#0a0a0d] p-6 flex flex-col gap-4">
+            <div className="flex items-center justify-between border-b border-zinc-800/50 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-950/40 border border-emerald-800/40 text-emerald-200 text-xs font-mono">
+                  03
+                </div>
+                <div>
+                  <h2 className="text-sm font-medium text-zinc-200 font-heading">Content Licensing</h2>
+                  <p className="text-[11px] text-zinc-400 font-mono">Direct 0.1 SOL royalty transfer to creator</p>
+                </div>
+              </div>
+            </div>
+
+            <input
+              type="text"
+              value={licenseHash}
+              onChange={(e) => setLicenseHash(e.target.value.trim())}
+              placeholder="Target content pHash (64 hex characters)"
+              maxLength={64}
+              className="rounded-xl border border-zinc-800 bg-zinc-950 px-3.5 py-2.5 text-xs font-mono text-zinc-200 placeholder-zinc-400 focus:border-emerald-800/70 focus:outline-none transition-colors"
+            />
+
+            {pHash && licenseHash !== pHash && (
+              <button
+                onClick={() => setLicenseHash(pHash)}
+                className="self-start text-[11px] font-mono text-emerald-300/80 hover:underline transition-all"
+              >
+                Use current file hash
+              </button>
+            )}
+
+            <button
+              onClick={handleBuyLicense}
+              disabled={!connected || isBuying || licenseHash.length !== 64}
+              className="rounded-xl border border-emerald-700/50 bg-emerald-900/40 hover:bg-emerald-800/50 px-4 py-2.5 text-xs font-medium text-emerald-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >
+              {!connected ? "Connect Wallet to Purchase" : isBuying ? "Processing Transfer..." : "Purchase License (0.1 SOL)"}
+            </button>
+
+            <StatusBanner status={licenseStatus} />
+
+            {licenseTx && (
+              <a
+                href={getExplorerUrl(licenseTx)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] font-mono text-emerald-300/80 hover:text-emerald-200 transition-colors"
+              >
+                → License Tx: {truncateSig(licenseTx)}
+              </a>
+            )}
+          </section>
+
+        </div>
 
         {/* Footer */}
         <footer className="text-center text-[11px] font-mono text-zinc-500 pt-4">
