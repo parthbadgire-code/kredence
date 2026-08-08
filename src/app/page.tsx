@@ -408,27 +408,27 @@ export default function Home() {
       {/* Background ambient particles (fixed, subtle, non-intrusive) */}
       <BackgroundCanvas />
 
-      <div className="relative z-10 mx-auto max-w-xl px-4 py-12 flex flex-col gap-8">
+      <div className="relative z-10 mx-auto max-w-3xl px-6 py-16 flex flex-col gap-12">
 
         {/* Header / Brand */}
-        <header className="flex flex-col items-center text-center gap-3">
-          <div className="flex items-center gap-2 rounded-full border border-zinc-800/80 bg-zinc-900/40 px-3 py-1 text-[11px] font-mono text-zinc-400">
+        <header className="flex flex-col items-center text-center gap-4">
+          <div className="flex items-center gap-2 rounded-full border border-zinc-800/80 bg-zinc-900/40 px-4 py-1.5 text-xs font-mono text-zinc-400 backdrop-blur-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-purple-300/80" />
             Solana Localnet Protocol
           </div>
-          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-zinc-100 font-heading">
+          <h1 className="text-5xl sm:text-6xl font-bold tracking-tight text-zinc-100 font-heading">
             Kredence
           </h1>
-          <p className="text-xs sm:text-sm text-zinc-400 max-w-md leading-relaxed font-sans">
+          <p className="text-sm sm:text-base text-zinc-400 max-w-lg leading-relaxed font-sans">
             Commit-reveal originality verification &amp; compressed NFT receipt issuance for digital media.
           </p>
         </header>
 
         {/* Wallet Adapter Bar */}
-        <div className="flex flex-col items-center gap-2.5">
+        <div className="flex flex-col items-center gap-3">
           <WalletMultiButton />
           {connected && balance !== null && (
-            <div className="flex items-center gap-2 text-[11px] font-mono text-zinc-400">
+            <div className="flex items-center gap-2 text-xs font-mono text-zinc-400">
               <span className={`h-1.5 w-1.5 rounded-full ${balance < 0.01 ? "bg-amber-400" : "bg-emerald-400"}`} />
               {balance < 0.01 ? (
                 <span className="text-amber-300/90">
@@ -442,11 +442,11 @@ export default function Home() {
         </div>
 
         {/* CARDS (ALWAYS VISIBLE) */}
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-8">
 
           {/* CARD 1: Commit & Mint */}
-          <section className="rounded-2xl border border-zinc-800/70 bg-[#0a0a0d] p-6 flex flex-col gap-5">
-            <div className="flex items-center justify-between border-b border-zinc-800/50 pb-4">
+          <section className="rounded-3xl border border-zinc-800/70 bg-[#0a0a0d]/80 backdrop-blur-md p-8 sm:p-10 flex flex-col gap-6 shadow-2xl shadow-black/50">
+            <div className="flex items-center justify-between border-b border-zinc-800/50 pb-5">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-950/40 border border-purple-800/40 text-purple-200 text-xs font-mono">
                   01
@@ -564,8 +564,8 @@ export default function Home() {
           </section>
 
           {/* CARD 2: Similarity Checker */}
-          <section className="rounded-2xl border border-zinc-800/70 bg-[#0a0a0d] p-6 flex flex-col gap-4">
-            <div className="flex items-center justify-between border-b border-zinc-800/50 pb-4">
+          <section className="rounded-3xl border border-zinc-800/70 bg-[#0a0a0d]/80 backdrop-blur-md p-8 sm:p-10 flex flex-col gap-6 shadow-2xl shadow-black/50">
+            <div className="flex items-center justify-between border-b border-zinc-800/50 pb-5">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-950/40 border border-indigo-800/40 text-indigo-200 text-xs font-mono">
                   02
@@ -641,8 +641,8 @@ export default function Home() {
           </section>
 
           {/* CARD 3: Purchase License */}
-          <section className="rounded-2xl border border-zinc-800/70 bg-[#0a0a0d] p-6 flex flex-col gap-4">
-            <div className="flex items-center justify-between border-b border-zinc-800/50 pb-4">
+          <section className="rounded-3xl border border-zinc-800/70 bg-[#0a0a0d]/80 backdrop-blur-md p-8 sm:p-10 flex flex-col gap-6 shadow-2xl shadow-black/50">
+            <div className="flex items-center justify-between border-b border-zinc-800/50 pb-5">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-950/40 border border-emerald-800/40 text-emerald-200 text-xs font-mono">
                   03
