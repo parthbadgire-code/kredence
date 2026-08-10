@@ -1,6 +1,10 @@
 import { useState, useEffect } from "react";
 import { X, ShieldAlert, FileSearch, CheckCircle2, Lock } from "lucide-react";
 import { getExplorerUrl, truncateSig } from "@/lib/utils";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { Program, AnchorProvider, Idl } from "@coral-xyz/anchor";
+import IDL from "@/lib/idl.json";
+import { PublicKey, SystemProgram } from "@solana/web3.js";
 
 interface DisputeModalProps {
   isOpen: boolean;
@@ -21,6 +25,9 @@ export default function DisputeModal({ isOpen, onClose, hash, pda }: DisputeModa
   const [evidenceUrl, setEvidenceUrl] = useState("");
   const [isLocking, setIsLocking] = useState(false);
   const [lockSuccess, setLockSuccess] = useState(false);
+
+  const { connection } = useConnection();
+  const wallet = useWallet();
 
   // Reset state when opened
   useEffect(() => {
@@ -47,14 +54,32 @@ export default function DisputeModal({ isOpen, onClose, hash, pda }: DisputeModa
     }, 2000);
   };
 
-  const handleLockAndChallenge = () => {
-    if (!evidenceUrl) return;
+  const handleLockAndChallenge = async () => {
+    if (!evidenceUrl || !wallet.publicKey) return;
     setIsLocking(true);
-    // Simulate smart contract stake logic
-    setTimeout(() => {
-      setIsLocking(false);
+    
+    try {
+      const provider = new AnchorProvider(connection, wallet as any, { commitment: "confirmed" });
+      const program = new Program(IDL as Idl, provider);
+
+      const contentRecordPda = new PublicKey(pda);
+
+      await program.methods
+        .raiseDispute(evidenceUrl)
+        .accounts({
+          contentRecord: contentRecordPda,
+          challenger: wallet.publicKey,
+          systemProgram: SystemProgram.programId,
+        } as any)
+        .rpc();
+
       setLockSuccess(true);
-    }, 2500);
+    } catch (err) {
+      console.error("Failed to raise dispute", err);
+      alert("Failed to raise dispute. See console.");
+    } finally {
+      setIsLocking(false);
+    }
   };
 
   return (
