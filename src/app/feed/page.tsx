@@ -18,6 +18,7 @@ interface FeedItem {
   timestamp: number;
   channel: string;
   disputeStatus: "active" | "disputed";
+  metadataUri?: string;
 }
 
 export default function FeedPage() {
@@ -59,6 +60,7 @@ export default function FeedPage() {
           timestamp: data.commitTime.toNumber(),
           channel: channelAssigned,
           disputeStatus: isDisputed ? "disputed" : "active",
+          metadataUri: data.metadataUri as string,
         };
       });
 
@@ -75,6 +77,64 @@ export default function FeedPage() {
   useEffect(() => {
     fetchFeed();
   }, [fetchFeed]);
+
+  // WebSocket Listener for Real-Time Updates
+  useEffect(() => {
+    const dummyWallet = {
+      publicKey: wallet.publicKey || null,
+      signTransaction: () => Promise.reject(),
+      signAllTransactions: () => Promise.reject(),
+    };
+    const provider = new AnchorProvider(connection, dummyWallet as any, { commitment: "confirmed" });
+    const program = new Program(IDL as Idl, provider);
+
+    const subId = connection.onProgramAccountChange(
+      program.programId,
+      (updatedAccountInfo) => {
+        try {
+          // Decode the new or updated account data using Anchor coder
+          const decoded = program.coder.accounts.decode(
+            "contentRecord",
+            updatedAccountInfo.accountInfo.data
+          );
+          
+          const hashStr = decoded.pHash as string;
+          let sum = 0;
+          for (let i = 0; i < hashStr.length; i++) sum += hashStr.charCodeAt(i);
+          const channelAssigned = CHANNELS[(sum % (CHANNELS.length - 1)) + 1];
+          const isDisputed = sum % 10 === 0;
+
+          const newItem: FeedItem = {
+            pda: updatedAccountInfo.accountId.toString(),
+            hash: hashStr,
+            creator: decoded.creator.toString(),
+            timestamp: decoded.commitTime.toNumber(),
+            channel: channelAssigned,
+            disputeStatus: isDisputed ? "disputed" : "active",
+            metadataUri: decoded.metadataUri as string,
+          };
+
+          setFeedItems((prev) => {
+            const existingIdx = prev.findIndex((i) => i.pda === newItem.pda);
+            if (existingIdx > -1) {
+              const next = [...prev];
+              next[existingIdx] = newItem;
+              return next;
+            } else {
+              return [newItem, ...prev].sort((a, b) => b.timestamp - a.timestamp);
+            }
+          });
+        } catch (e) {
+          // Ignore decoding errors (could be older PDAs or different account types)
+        }
+      },
+      "confirmed"
+    );
+
+    return () => {
+      connection.removeProgramAccountChangeListener(subId);
+    };
+  }, [connection, wallet.publicKey]);
 
   const filteredItems = feedItems.filter(
     (item) => activeChannel === "All" || item.channel === activeChannel

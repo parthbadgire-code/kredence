@@ -1,5 +1,5 @@
 {
-  "address": "J8zY5tEUxTsz5U6EUPyreRn4vU2ZrxutWAWZtxyJptbp",
+  "address": "noopb9bkMVfRPU8AsbpTUg8AQkHtKwMYZiFUjNRtMmV",
   "metadata": {
     "name": "anchor_kredence",
     "version": "0.1.0",
@@ -91,7 +91,10 @@
                   116,
                   101,
                   110,
-                  116
+                  116,
+                  95,
+                  118,
+                  50
                 ]
               },
               {
@@ -155,7 +158,10 @@
                   116,
                   101,
                   110,
-                  116
+                  116,
+                  95,
+                  118,
+                  50
                 ]
               },
               {
@@ -218,7 +224,10 @@
                   116,
                   101,
                   110,
-                  116
+                  116,
+                  95,
+                  118,
+                  50
                 ]
               },
               {
@@ -362,6 +371,10 @@
                 "name": "RecordStatus"
               }
             }
+          },
+          {
+            "name": "metadata_uri",
+            "type": "string"
           }
         ]
       }
