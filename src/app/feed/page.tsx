@@ -19,6 +19,11 @@ interface FeedItem {
   channel: string;
   disputeStatus: "active" | "disputed";
   metadataUri?: string;
+  isDisputed: boolean;
+  isResolved: boolean;
+  creatorVotes: number;
+  challengerVotes: number;
+  winnerIsCreator: boolean;
 }
 
 export default function FeedPage() {
@@ -59,8 +64,13 @@ export default function FeedPage() {
           creator: data.creator.toString(),
           timestamp: data.commitTime.toNumber(),
           channel: channelAssigned,
-          disputeStatus: isDisputed ? "disputed" : "active",
+          disputeStatus: data.isDisputed ? "disputed" : "active",
           metadataUri: data.metadataUri as string,
+          isDisputed: data.isDisputed,
+          isResolved: data.isResolved,
+          creatorVotes: data.creatorVotes,
+          challengerVotes: data.challengerVotes,
+          winnerIsCreator: data.winnerIsCreator,
         };
       });
 
@@ -110,8 +120,13 @@ export default function FeedPage() {
             creator: decoded.creator.toString(),
             timestamp: decoded.commitTime.toNumber(),
             channel: channelAssigned,
-            disputeStatus: isDisputed ? "disputed" : "active",
+            disputeStatus: decoded.isDisputed ? "disputed" : "active",
             metadataUri: decoded.metadataUri as string,
+            isDisputed: decoded.isDisputed,
+            isResolved: decoded.isResolved,
+            creatorVotes: decoded.creatorVotes,
+            challengerVotes: decoded.challengerVotes,
+            winnerIsCreator: decoded.winnerIsCreator,
           };
 
           setFeedItems((prev) => {

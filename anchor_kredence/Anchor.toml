@@ -1,15 +1,15 @@
 [toolchain]
-package_manager = "yarn"
 anchor_version = "1.0.1"
+package_manager = "yarn"
 
 [features]
 resolution = true
 skip-lint = false
 
-[programs.localnet]
-anchor_kredence = "J8zY5tEUxTsz5U6EUPyreRn4vU2ZrxutWAWZtxyJptbp"
-
 [programs.devnet]
+anchor_kredence = "EMrHDb9yk3cjnnj2czRa7MRi6PTjWJukUnZ2Zt3jWNv6"
+
+[programs.localnet]
 anchor_kredence = "J8zY5tEUxTsz5U6EUPyreRn4vU2ZrxutWAWZtxyJptbp"
 
 [provider]
@@ -19,11 +19,18 @@ wallet = "~/.config/solana/id.json"
 [scripts]
 test = "cargo test"
 
+[hooks]
+
 [test]
 startup_wait = 10000
+shutdown_wait = 2000
+upgradeable = false
 
 [test.validator]
+bind_address = "0.0.0.0"
 url = "https://api.devnet.solana.com"
+ledger = ".anchor/test-ledger"
+rpc_port = 8899
 
 [[test.validator.clone]]
 address = "BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY"

@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::{program::invoke, instruction::{AccountMeta, Instruction}};
 
-declare_id!("J8zY5tEUxTsz5U6EUPyreRn4vU2ZrxutWAWZtxyJptbp");
+declare_id!("EMrHDb9yk3cjnnj2czRa7MRi6PTjWJukUnZ2Zt3jWNv6");
 
 pub mod bubblegum_ids {
     use anchor_lang::declare_id;
@@ -32,6 +32,13 @@ pub mod anchor_kredence {
         record.p_hash = p_hash;
         record.status = RecordStatus::Pending;
         record.metadata_uri = "".to_string();
+        record.is_disputed = false;
+        record.is_resolved = false;
+        record.challenger = Pubkey::default();
+        record.evidence_url = "".to_string();
+        record.creator_votes = 0;
+        record.challenger_votes = 0;
+        record.winner_is_creator = false;
 
         msg!("Kredence | commit_content");
         msg!("  creator    : {}", record.creator);
@@ -195,6 +202,95 @@ pub mod anchor_kredence {
 
         Ok(())
     }
+
+    pub fn raise_dispute(ctx: Context<RaiseDispute>, evidence_url: String) -> Result<()> {
+        let record = &mut ctx.accounts.content_record;
+        require!(!record.is_disputed, KredenceError::AlreadyDisputed);
+
+        // CPI Transfer 0.05 SOL from challenger to content_record
+        let ix = anchor_lang::solana_program::system_instruction::transfer(
+            &ctx.accounts.challenger.key(),
+            &record.key(),
+            50_000_000,
+        );
+        invoke(
+            &ix,
+            &[
+                ctx.accounts.challenger.to_account_info(),
+                record.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
+            ],
+        )?;
+
+        record.is_disputed = true;
+        record.challenger = ctx.accounts.challenger.key();
+        record.evidence_url = evidence_url;
+
+        Ok(())
+    }
+
+    pub fn cast_vote(ctx: Context<CastVote>, vote_for_creator: bool) -> Result<()> {
+        let record = &mut ctx.accounts.content_record;
+        require!(record.is_disputed, KredenceError::NotDisputed);
+        require!(!record.is_resolved, KredenceError::AlreadyResolved);
+
+        let receipt = &mut ctx.accounts.vote_receipt;
+        receipt.voted_for_creator = vote_for_creator;
+
+        if vote_for_creator {
+            record.creator_votes = record.creator_votes.checked_add(1).unwrap();
+        } else {
+            record.challenger_votes = record.challenger_votes.checked_add(1).unwrap();
+        }
+
+        Ok(())
+    }
+
+    pub fn resolve_dispute(ctx: Context<ResolveDispute>) -> Result<()> {
+        let record = &mut ctx.accounts.content_record;
+        require!(record.is_disputed, KredenceError::NotDisputed);
+        require!(!record.is_resolved, KredenceError::AlreadyResolved);
+
+        let winner_is_creator = record.creator_votes >= record.challenger_votes;
+        
+        let payout = 25_000_000;
+        
+        **record.to_account_info().try_borrow_mut_lamports()? -= payout;
+        if winner_is_creator {
+            **ctx.accounts.creator.try_borrow_mut_lamports()? += payout;
+        } else {
+            **ctx.accounts.challenger.try_borrow_mut_lamports()? += payout;
+        }
+
+        record.winner_is_creator = winner_is_creator;
+        record.is_resolved = true;
+
+        Ok(())
+    }
+
+    pub fn claim_reward(ctx: Context<ClaimReward>) -> Result<()> {
+        let record = &mut ctx.accounts.content_record;
+        require!(record.is_resolved, KredenceError::NotResolved);
+        require!(
+            ctx.accounts.vote_receipt.voted_for_creator == record.winner_is_creator,
+            KredenceError::VotedForLoser
+        );
+
+        let winning_votes = if record.winner_is_creator {
+            record.creator_votes
+        } else {
+            record.challenger_votes
+        };
+        
+        require!(winning_votes > 0, KredenceError::NoWinningVotes);
+
+        let payout = 25_000_000 / (winning_votes as u64);
+        
+        **record.to_account_info().try_borrow_mut_lamports()? -= payout;
+        **ctx.accounts.voter.to_account_info().try_borrow_mut_lamports()? += payout;
+        
+        Ok(())
+    }
 }
 
 // ============================================================
@@ -239,8 +335,8 @@ pub struct CommitContent<'info> {
     #[account(
         init,
         payer  = payer,
-        // Discriminator(8) + Pubkey(32) + i64(8) + String(4 + 64) + Enum(1) + String(4 + 100)
-        space  = 300,
+        // Discriminator(8) + Pubkey(32) + i64(8) + String(4 + 64) + Enum(1) + String(4 + 100) + New fields
+        space  = 500,
         // Split the 64-char hex pHash into two 32-byte halves for Solana seed limits.
         seeds  = [b"content_v2", p_hash.as_bytes().get(..32).unwrap(), p_hash.as_bytes().get(32..64).unwrap()],
         bump
@@ -314,6 +410,79 @@ pub struct CheckSimilarity<'info> {
     pub caller: Signer<'info>,
 }
 
+#[derive(Accounts)]
+#[instruction(evidence_url: String)]
+pub struct RaiseDispute<'info> {
+    #[account(
+        mut,
+        seeds = [b"content_v2", content_record.p_hash.as_bytes().get(..32).unwrap(), content_record.p_hash.as_bytes().get(32..64).unwrap()],
+        bump,
+    )]
+    pub content_record: Account<'info, ContentRecord>,
+    #[account(mut)]
+    pub challenger: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(vote_for_creator: bool)]
+pub struct CastVote<'info> {
+    #[account(
+        mut,
+        seeds = [b"content_v2", content_record.p_hash.as_bytes().get(..32).unwrap(), content_record.p_hash.as_bytes().get(32..64).unwrap()],
+        bump,
+    )]
+    pub content_record: Account<'info, ContentRecord>,
+    #[account(
+        init,
+        payer = signer,
+        space = 8 + 1,
+        seeds = [b"vote", content_record.key().as_ref(), signer.key().as_ref()],
+        bump
+    )]
+    pub vote_receipt: Account<'info, VoteReceipt>,
+    #[account(mut)]
+    pub signer: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct ResolveDispute<'info> {
+    #[account(
+        mut,
+        seeds = [b"content_v2", content_record.p_hash.as_bytes().get(..32).unwrap(), content_record.p_hash.as_bytes().get(32..64).unwrap()],
+        bump,
+    )]
+    pub content_record: Account<'info, ContentRecord>,
+    #[account(mut)]
+    /// CHECK: Safe because we just send lamports to it
+    pub creator: UncheckedAccount<'info>,
+    #[account(mut)]
+    /// CHECK: Safe because we just send lamports to it
+    pub challenger: UncheckedAccount<'info>,
+    #[account(mut)]
+    pub signer: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct ClaimReward<'info> {
+    #[account(
+        mut,
+        seeds = [b"content_v2", content_record.p_hash.as_bytes().get(..32).unwrap(), content_record.p_hash.as_bytes().get(32..64).unwrap()],
+        bump,
+    )]
+    pub content_record: Account<'info, ContentRecord>,
+    #[account(
+        mut,
+        close = voter,
+        seeds = [b"vote", content_record.key().as_ref(), voter.key().as_ref()],
+        bump
+    )]
+    pub vote_receipt: Account<'info, VoteReceipt>,
+    #[account(mut)]
+    pub voter: Signer<'info>,
+}
+
 // ============================================================
 // State & Events
 // ============================================================
@@ -331,6 +500,18 @@ pub struct ContentRecord {
     pub p_hash: String,
     pub status: RecordStatus,
     pub metadata_uri: String,
+    pub is_disputed: bool,
+    pub is_resolved: bool,
+    pub challenger: Pubkey,
+    pub evidence_url: String,
+    pub creator_votes: u16,
+    pub challenger_votes: u16,
+    pub winner_is_creator: bool,
+}
+
+#[account]
+pub struct VoteReceipt {
+    pub voted_for_creator: bool,
 }
 
 #[event]
@@ -408,4 +589,16 @@ pub enum KredenceError {
     InvalidHex,
     #[msg("Creator wallet address does not match the content record.")]
     InvalidCreatorWallet,
+    #[msg("Content is already disputed.")]
+    AlreadyDisputed,
+    #[msg("Content is not disputed.")]
+    NotDisputed,
+    #[msg("Dispute is already resolved.")]
+    AlreadyResolved,
+    #[msg("Dispute is not resolved yet.")]
+    NotResolved,
+    #[msg("You did not vote for the winner.")]
+    VotedForLoser,
+    #[msg("No winning votes to distribute yield to.")]
+    NoWinningVotes,
 }

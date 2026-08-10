@@ -1,7 +1,11 @@
 import { useState, useEffect } from "react";
-import { Clock, AlertTriangle, ShieldCheck, User } from "lucide-react";
+import { Clock, AlertTriangle, ShieldCheck, User, Gavel, Coins } from "lucide-react";
 import DisputeModal from "./DisputeModal";
-import { getExplorerUrl, truncateSig } from "@/lib/utils"; // need to create/extract utils
+import { getExplorerUrl, truncateSig } from "@/lib/utils";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { Program, AnchorProvider, Idl } from "@coral-xyz/anchor";
+import IDL from "@/lib/idl.json";
+import { PublicKey, SystemProgram } from "@solana/web3.js";
 
 interface FeedCardProps {
   pda: string;
@@ -11,6 +15,11 @@ interface FeedCardProps {
   channel: string;
   disputeStatus: "active" | "disputed";
   metadataUri?: string;
+  isDisputed?: boolean;
+  isResolved?: boolean;
+  creatorVotes?: number;
+  challengerVotes?: number;
+  winnerIsCreator?: boolean;
 }
 
 export default function FeedCard({
@@ -21,9 +30,25 @@ export default function FeedCard({
   channel,
   disputeStatus,
   metadataUri,
+  isDisputed,
+  isResolved,
+  creatorVotes = 0,
+  challengerVotes = 0,
+  winnerIsCreator,
 }: FeedCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+
+  const { connection } = useConnection();
+  const wallet = useWallet();
+  const [isVoting, setIsVoting] = useState(false);
+  const [isResolving, setIsResolving] = useState(false);
+  const [isClaiming, setIsClaiming] = useState(false);
+
+  const getProgram = () => {
+    const provider = new AnchorProvider(connection, wallet as any, { commitment: "confirmed" });
+    return new Program(IDL as Idl, provider);
+  };
 
   useEffect(() => {
     if (!metadataUri || !metadataUri.startsWith("ipfs://")) return;
@@ -72,6 +97,105 @@ export default function FeedCard({
     );
   };
 
+  const handleVote = async (voteForCreator: boolean) => {
+    if (!wallet.publicKey) return alert("Connect wallet to vote");
+    setIsVoting(true);
+    try {
+      const program = getProgram();
+      const contentRecordPda = new PublicKey(pda);
+      const [voteReceipt] = PublicKey.findProgramAddressSync(
+        [Buffer.from("vote"), contentRecordPda.toBuffer(), wallet.publicKey.toBuffer()],
+        program.programId
+      );
+
+      await program.methods
+        .castVote(voteForCreator)
+        .accounts({
+          contentRecord: contentRecordPda,
+          voteReceipt,
+          signer: wallet.publicKey,
+          systemProgram: SystemProgram.programId,
+        } as any)
+        .rpc();
+      
+      alert("Vote cast successfully!");
+    } catch (err: any) {
+      console.error(err);
+      if (err.message.includes("already in use") || err.message.includes("0x0")) {
+        alert("🚫 One vote per wallet!");
+      } else {
+        alert("Failed to vote. See console.");
+      }
+    } finally {
+      setIsVoting(false);
+    }
+  };
+
+  const handleResolve = async () => {
+    if (!wallet.publicKey) return alert("Connect wallet to resolve");
+    setIsResolving(true);
+    try {
+      const program = getProgram();
+      const contentRecordPda = new PublicKey(pda);
+      
+      // We need creator and challenger public keys, for hackathon we assume 
+      // the data includes challenger but since we didn't pass it in FeedCardProps,
+      // we just use dummy or fetch the account directly. 
+      // Actually, resolve_dispute needs them to send SOL.
+      const record = await program.account.contentRecord.fetch(contentRecordPda) as any;
+
+      await program.methods
+        .resolveDispute()
+        .accounts({
+          contentRecord: contentRecordPda,
+          creator: record.creator,
+          challenger: record.challenger,
+          signer: wallet.publicKey,
+        } as any)
+        .rpc();
+
+      alert("Dispute Resolved & Slashed!");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to resolve dispute. See console.");
+    } finally {
+      setIsResolving(false);
+    }
+  };
+
+  const handleClaim = async () => {
+    if (!wallet.publicKey) return alert("Connect wallet to claim");
+    setIsClaiming(true);
+    try {
+      const program = getProgram();
+      const contentRecordPda = new PublicKey(pda);
+      const [voteReceipt] = PublicKey.findProgramAddressSync(
+        [Buffer.from("vote"), contentRecordPda.toBuffer(), wallet.publicKey.toBuffer()],
+        program.programId
+      );
+
+      await program.methods
+        .claimReward()
+        .accounts({
+          contentRecord: contentRecordPda,
+          voteReceipt,
+          voter: wallet.publicKey,
+        } as any)
+        .rpc();
+
+      alert("Yield Claimed! Receipt PDA burned.");
+    } catch (err: any) {
+      console.error(err);
+      if (err.message.includes("Account does not exist") || err.message.includes("VotedForLoser")) {
+        alert("You did not vote for the winner, or already claimed.");
+      } else {
+        alert("Failed to claim reward. See console.");
+      }
+    } finally {
+      setIsClaiming(false);
+    }
+  };
+
   return (
     <>
       <div className="flex flex-col gap-4 rounded-3xl border border-zinc-800/70 bg-[#0a0a0d]/80 backdrop-blur-md p-5 sm:p-6 shadow-xl transition-all hover:border-zinc-700/70">
@@ -93,12 +217,14 @@ export default function FeedCard({
           </div>
           
           <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wider font-bold border ${
-            disputeStatus === "active" 
-              ? "bg-emerald-950/30 text-emerald-400 border-emerald-900/50" 
-              : "bg-amber-950/30 text-amber-400 border-amber-900/50"
+            isResolved
+              ? "bg-blue-950/30 text-blue-400 border-blue-900/50"
+              : isDisputed 
+              ? "bg-amber-950/30 text-amber-400 border-amber-900/50"
+              : "bg-emerald-950/30 text-emerald-400 border-emerald-900/50" 
           }`}>
-            {disputeStatus === "active" ? <ShieldCheck size={12} /> : <AlertTriangle size={12} />}
-            {disputeStatus === "active" ? "Optimistically Active" : "In Dispute"}
+            {isResolved ? <Gavel size={12} /> : isDisputed ? <AlertTriangle size={12} /> : <ShieldCheck size={12} />}
+            {isResolved ? "RESOLVED" : isDisputed ? "IN DISPUTE" : "OPTIMISTICALLY ACTIVE"}
           </div>
         </div>
 
@@ -117,20 +243,74 @@ export default function FeedCard({
 
         {/* Footer Actions */}
         <div className="flex flex-col sm:flex-row gap-3 mt-2">
-          <a
-            href={`/api/actions/license?hash=${hash}`} // Mocking the Blink execution as a standard link for now, in real life they'd use dial.to
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1 text-center rounded-xl bg-purple-900/50 hover:bg-purple-800/60 border border-purple-700/50 px-4 py-3 text-sm font-medium text-purple-100 transition-all"
-          >
-            License for 0.1 SOL
-          </a>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex-1 rounded-xl bg-zinc-900/50 hover:bg-zinc-800/60 border border-zinc-700/50 px-4 py-3 text-sm font-medium text-zinc-300 transition-all"
-          >
-            Challenge / Dispute
-          </button>
+          {!isDisputed && !isResolved && (
+            <>
+              <a
+                href={`/api/actions/license?hash=${hash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 text-center rounded-xl bg-purple-900/50 hover:bg-purple-800/60 border border-purple-700/50 px-4 py-3 text-sm font-medium text-purple-100 transition-all"
+              >
+                License for 0.1 SOL
+              </a>
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="flex-1 rounded-xl bg-zinc-900/50 hover:bg-zinc-800/60 border border-zinc-700/50 px-4 py-3 text-sm font-medium text-zinc-300 transition-all"
+              >
+                Challenge / Dispute
+              </button>
+            </>
+          )}
+
+          {isDisputed && !isResolved && (
+            <div className="flex flex-col w-full gap-2 border-t border-zinc-800/50 pt-4 mt-2">
+              <div className="flex items-center justify-between text-xs font-medium text-zinc-400 px-2 mb-1">
+                <span>Jury Voting Active</span>
+                <span>Creator: {creatorVotes} | Challenger: {challengerVotes}</span>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  disabled={isVoting}
+                  onClick={() => handleVote(true)}
+                  className="flex-1 rounded-xl bg-emerald-900/30 hover:bg-emerald-800/40 border border-emerald-700/30 px-3 py-2 text-xs font-medium text-emerald-300 transition-all"
+                >
+                  Vote Original
+                </button>
+                <button
+                  disabled={isVoting}
+                  onClick={() => handleVote(false)}
+                  className="flex-1 rounded-xl bg-amber-900/30 hover:bg-amber-800/40 border border-amber-700/30 px-3 py-2 text-xs font-medium text-amber-300 transition-all"
+                >
+                  Vote Stolen
+                </button>
+                <button
+                  disabled={isResolving}
+                  onClick={handleResolve}
+                  className="flex-1 rounded-xl bg-blue-900/30 hover:bg-blue-800/40 border border-blue-700/30 px-3 py-2 text-xs font-medium text-blue-300 transition-all flex items-center justify-center gap-1"
+                >
+                  <Gavel size={14}/> Resolve & Slash
+                </button>
+              </div>
+            </div>
+          )}
+
+          {isResolved && (
+            <div className="flex flex-col w-full gap-2 border-t border-zinc-800/50 pt-4 mt-2">
+              <div className="flex items-center justify-between text-xs font-medium px-2 mb-1">
+                <span className="text-zinc-400">Winner:</span>
+                <span className={winnerIsCreator ? "text-emerald-400" : "text-amber-400"}>
+                  {winnerIsCreator ? "Original Creator" : "Challenger"}
+                </span>
+              </div>
+              <button
+                disabled={isClaiming}
+                onClick={handleClaim}
+                className="w-full rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 px-4 py-3 text-sm font-medium text-emerald-300 transition-all flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(16,185,129,0.15)] hover:shadow-[0_0_20px_rgba(16,185,129,0.3)] animate-pulse hover:animate-none"
+              >
+                <Coins size={16}/> Claim Yield
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
