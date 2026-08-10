@@ -142,7 +142,7 @@ export default function FeedCard({
       // the data includes challenger but since we didn't pass it in FeedCardProps,
       // we just use dummy or fetch the account directly. 
       // Actually, resolve_dispute needs them to send SOL.
-      const record = await program.account.contentRecord.fetch(contentRecordPda) as any;
+      const record = await (program.account as any).contentRecord.fetch(contentRecordPda);
 
       await program.methods
         .resolveDispute()
