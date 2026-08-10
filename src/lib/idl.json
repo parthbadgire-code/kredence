@@ -8,6 +8,94 @@
   },
   "instructions": [
     {
+      "name": "cast_vote",
+      "discriminator": [
+        20,
+        212,
+        15,
+        189,
+        69,
+        180,
+        69,
+        151
+      ],
+      "accounts": [
+        {
+          "name": "content_record",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  116,
+                  101,
+                  110,
+                  116,
+                  95,
+                  118,
+                  50
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "content_record.p_hash",
+                "account": "ContentRecord"
+              },
+              {
+                "kind": "account",
+                "path": "content_record.p_hash",
+                "account": "ContentRecord"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vote_receipt",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  111,
+                  116,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "content_record"
+              },
+              {
+                "kind": "account",
+                "path": "signer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "vote_for_creator",
+          "type": "bool"
+        }
+      ]
+    },
+    {
       "name": "check_similarity",
       "docs": [
         "Instruction 3: check_similarity",
@@ -49,6 +137,85 @@
           "type": "string"
         }
       ]
+    },
+    {
+      "name": "claim_reward",
+      "discriminator": [
+        149,
+        95,
+        181,
+        242,
+        94,
+        90,
+        158,
+        162
+      ],
+      "accounts": [
+        {
+          "name": "content_record",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  116,
+                  101,
+                  110,
+                  116,
+                  95,
+                  118,
+                  50
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "content_record.p_hash",
+                "account": "ContentRecord"
+              },
+              {
+                "kind": "account",
+                "path": "content_record.p_hash",
+                "account": "ContentRecord"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vote_receipt",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  111,
+                  116,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "content_record"
+              },
+              {
+                "kind": "account",
+                "path": "voter"
+              }
+            ]
+          }
+        },
+        {
+          "name": "voter",
+          "writable": true,
+          "signer": true
+        }
+      ],
+      "args": []
     },
     {
       "name": "commit_content",
@@ -190,6 +357,131 @@
       ]
     },
     {
+      "name": "raise_dispute",
+      "discriminator": [
+        41,
+        243,
+        1,
+        51,
+        150,
+        95,
+        246,
+        73
+      ],
+      "accounts": [
+        {
+          "name": "content_record",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  116,
+                  101,
+                  110,
+                  116,
+                  95,
+                  118,
+                  50
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "content_record.p_hash",
+                "account": "ContentRecord"
+              },
+              {
+                "kind": "account",
+                "path": "content_record.p_hash",
+                "account": "ContentRecord"
+              }
+            ]
+          }
+        },
+        {
+          "name": "challenger",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "evidence_url",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "resolve_dispute",
+      "discriminator": [
+        231,
+        6,
+        202,
+        6,
+        96,
+        103,
+        12,
+        230
+      ],
+      "accounts": [
+        {
+          "name": "content_record",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  116,
+                  101,
+                  110,
+                  116,
+                  95,
+                  118,
+                  50
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "content_record.p_hash",
+                "account": "ContentRecord"
+              },
+              {
+                "kind": "account",
+                "path": "content_record.p_hash",
+                "account": "ContentRecord"
+              }
+            ]
+          }
+        },
+        {
+          "name": "creator",
+          "writable": true
+        },
+        {
+          "name": "challenger",
+          "writable": true
+        },
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "reveal_and_mint",
       "docs": [
         "Instruction 2: reveal_and_mint"
@@ -289,6 +581,19 @@
         237,
         60
       ]
+    },
+    {
+      "name": "VoteReceipt",
+      "discriminator": [
+        104,
+        20,
+        204,
+        252,
+        45,
+        84,
+        37,
+        195
+      ]
     }
   ],
   "events": [
@@ -344,6 +649,36 @@
       "code": 6004,
       "name": "InvalidCreatorWallet",
       "msg": "Creator wallet address does not match the content record."
+    },
+    {
+      "code": 6005,
+      "name": "AlreadyDisputed",
+      "msg": "Content is already disputed."
+    },
+    {
+      "code": 6006,
+      "name": "NotDisputed",
+      "msg": "Content is not disputed."
+    },
+    {
+      "code": 6007,
+      "name": "AlreadyResolved",
+      "msg": "Dispute is already resolved."
+    },
+    {
+      "code": 6008,
+      "name": "NotResolved",
+      "msg": "Dispute is not resolved yet."
+    },
+    {
+      "code": 6009,
+      "name": "VotedForLoser",
+      "msg": "You did not vote for the winner."
+    },
+    {
+      "code": 6010,
+      "name": "NoWinningVotes",
+      "msg": "No winning votes to distribute yield to."
     }
   ],
   "types": [
@@ -375,6 +710,34 @@
           {
             "name": "metadata_uri",
             "type": "string"
+          },
+          {
+            "name": "is_disputed",
+            "type": "bool"
+          },
+          {
+            "name": "is_resolved",
+            "type": "bool"
+          },
+          {
+            "name": "challenger",
+            "type": "pubkey"
+          },
+          {
+            "name": "evidence_url",
+            "type": "string"
+          },
+          {
+            "name": "creator_votes",
+            "type": "u16"
+          },
+          {
+            "name": "challenger_votes",
+            "type": "u16"
+          },
+          {
+            "name": "winner_is_creator",
+            "type": "bool"
           }
         ]
       }
@@ -447,6 +810,18 @@
               "Human-readable label: IDENTICAL | VERY_SIMILAR | SOMEWHAT_SIMILAR | DIFFERENT"
             ],
             "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "VoteReceipt",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "voted_for_creator",
+            "type": "bool"
           }
         ]
       }
