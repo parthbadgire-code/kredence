@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Clock, AlertTriangle, ShieldCheck, User } from "lucide-react";
 import DisputeModal from "./DisputeModal";
 import { getExplorerUrl, truncateSig } from "@/lib/utils"; // need to create/extract utils
