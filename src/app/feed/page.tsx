@@ -24,6 +24,7 @@ interface FeedItem {
   creatorVotes: number;
   challengerVotes: number;
   winnerIsCreator: boolean;
+  evidenceUrl: string;
 }
 
 export default function FeedPage() {
@@ -71,6 +72,7 @@ export default function FeedPage() {
           creatorVotes: data.creatorVotes,
           challengerVotes: data.challengerVotes,
           winnerIsCreator: data.winnerIsCreator,
+          evidenceUrl: data.evidenceUrl as string,
         };
       });
 
@@ -127,6 +129,7 @@ export default function FeedPage() {
             creatorVotes: decoded.creatorVotes,
             challengerVotes: decoded.challengerVotes,
             winnerIsCreator: decoded.winnerIsCreator,
+            evidenceUrl: decoded.evidenceUrl as string,
           };
 
           setFeedItems((prev) => {

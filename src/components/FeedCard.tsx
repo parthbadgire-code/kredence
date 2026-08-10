@@ -3,7 +3,7 @@ import { Clock, AlertTriangle, ShieldCheck, User, Gavel, Coins } from "lucide-re
 import DisputeModal from "./DisputeModal";
 import { getExplorerUrl, truncateSig } from "@/lib/utils";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { Program, AnchorProvider, Idl } from "@coral-xyz/anchor";
+import { Program, AnchorProvider, Idl, BN } from "@coral-xyz/anchor";
 import IDL from "@/lib/idl.json";
 import { PublicKey, SystemProgram } from "@solana/web3.js";
 
@@ -20,6 +20,7 @@ interface FeedCardProps {
   creatorVotes?: number;
   challengerVotes?: number;
   winnerIsCreator?: boolean;
+  evidenceUrl?: string;
 }
 
 export default function FeedCard({
@@ -35,15 +36,18 @@ export default function FeedCard({
   creatorVotes = 0,
   challengerVotes = 0,
   winnerIsCreator,
+  evidenceUrl,
 }: FeedCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [evidenceData, setEvidenceData] = useState<{description?: string, external_url?: string, image?: string} | null>(null);
 
   const { connection } = useConnection();
   const wallet = useWallet();
   const [isVoting, setIsVoting] = useState(false);
   const [isResolving, setIsResolving] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
+  const [isLicensing, setIsLicensing] = useState(false);
 
   const getProgram = () => {
     const provider = new AnchorProvider(connection, wallet as any, { commitment: "confirmed" });
@@ -67,6 +71,22 @@ export default function FeedCard({
     };
     fetchMetadata();
   }, [metadataUri]);
+
+  useEffect(() => {
+    if (!evidenceUrl || !evidenceUrl.startsWith("ipfs://")) return;
+    
+    const fetchEvidence = async () => {
+      try {
+        const hash = evidenceUrl.replace("ipfs://", "");
+        const res = await fetch(`https://gateway.pinata.cloud/ipfs/${hash}`);
+        const data = await res.json();
+        setEvidenceData(data);
+      } catch (err) {
+        console.error("Failed to load IPFS evidence", err);
+      }
+    };
+    fetchEvidence();
+  }, [evidenceUrl]);
 
   // Generate a deterministic abstract pattern based on the hash (Option A)
   const generatePattern = (hashString: string) => {
@@ -196,6 +216,33 @@ export default function FeedCard({
     }
   };
 
+  const handleLicense = async () => {
+    if (!wallet.publicKey) return alert("Connect wallet to license");
+    setIsLicensing(true);
+    try {
+      const program = getProgram();
+      const contentRecordPda = new PublicKey(pda);
+      const creatorPubkey = new PublicKey(creator);
+
+      await program.methods
+        .purchaseLicense(new BN(100_000_000))
+        .accounts({
+          buyer: wallet.publicKey,
+          creatorWallet: creatorPubkey,
+          contentRecord: contentRecordPda,
+          systemProgram: SystemProgram.programId,
+        } as any)
+        .rpc();
+
+      alert("License Purchased Successfully for 0.1 SOL!");
+    } catch (err: any) {
+      console.error(err);
+      alert("Failed to purchase license. See console.");
+    } finally {
+      setIsLicensing(false);
+    }
+  };
+
   return (
     <>
       <div className="flex flex-col gap-4 rounded-3xl border border-zinc-800/70 bg-[#0a0a0d]/80 backdrop-blur-md p-5 sm:p-6 shadow-xl transition-all hover:border-zinc-700/70">
@@ -228,31 +275,58 @@ export default function FeedCard({
           </div>
         </div>
 
-        {/* Media / Hash Visual */}
+        {/* Content Preview */}
         {imageUrl ? (
-          <div className="w-full h-48 sm:h-64 rounded-xl overflow-hidden relative flex items-center justify-center border border-zinc-800/50 bg-black">
-            <img src={imageUrl} alt="Content" className="object-cover w-full h-full opacity-90 transition-opacity hover:opacity-100" />
-            <div className="absolute bottom-2 left-2 flex flex-col gap-0.5 z-10 backdrop-blur-md bg-black/60 px-3 py-1.5 rounded-lg border border-white/10">
-              <span className="text-white/60 text-[9px] uppercase tracking-widest font-mono">Fingerprint</span>
-              <span className="text-white/90 text-xs font-mono tracking-wider">{hash.slice(0,12)}...</span>
-            </div>
+          <div className="w-full h-48 sm:h-64 rounded-xl overflow-hidden border border-zinc-800/50">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={imageUrl} alt="Content" className="w-full h-full object-cover" />
           </div>
         ) : (
           generatePattern(hash)
+        )}
+
+        {/* Challenger Evidence Preview */}
+        {isDisputed && evidenceData && (
+          <div className="flex flex-col gap-3 p-4 rounded-xl border border-amber-900/30 bg-amber-950/10 mt-2">
+            <h4 className="text-sm font-semibold text-amber-500 flex items-center gap-2">
+              <AlertTriangle size={16} />
+              Challenger&apos;s Evidence
+            </h4>
+            {evidenceData.description && (
+              <p className="text-sm text-amber-200/80 leading-relaxed bg-black/20 p-3 rounded-lg border border-amber-900/20">
+                &quot;{evidenceData.description}&quot;
+              </p>
+            )}
+            {evidenceData.external_url && (
+              <a 
+                href={evidenceData.external_url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-xs text-blue-400 hover:text-blue-300 underline break-all"
+              >
+                {evidenceData.external_url}
+              </a>
+            )}
+            {evidenceData.image && (
+              <div className="w-32 h-32 rounded-lg overflow-hidden border border-amber-900/50 mt-1">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={evidenceData.image.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/")} alt="Evidence" className="w-full h-full object-cover" />
+              </div>
+            )}
+          </div>
         )}
 
         {/* Footer Actions */}
         <div className="flex flex-col sm:flex-row gap-3 mt-2">
           {!isDisputed && !isResolved && (
             <>
-              <a
-                href={`/api/actions/license?hash=${hash}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1 text-center rounded-xl bg-purple-900/50 hover:bg-purple-800/60 border border-purple-700/50 px-4 py-3 text-sm font-medium text-purple-100 transition-all"
+              <button
+                disabled={isLicensing}
+                onClick={handleLicense}
+                className="flex-1 rounded-xl bg-purple-900/50 hover:bg-purple-800/60 border border-purple-700/50 px-4 py-3 text-sm font-medium text-purple-100 transition-all disabled:opacity-50"
               >
-                License for 0.1 SOL
-              </a>
+                {isLicensing ? "Purchasing..." : "License for 0.1 SOL"}
+              </button>
               <button
                 onClick={() => setIsModalOpen(true)}
                 className="flex-1 rounded-xl bg-zinc-900/50 hover:bg-zinc-800/60 border border-zinc-700/50 px-4 py-3 text-sm font-medium text-zinc-300 transition-all"
