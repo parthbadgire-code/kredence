@@ -31,7 +31,7 @@ pub mod anchor_kredence {
         record.commit_time = Clock::get()?.unix_timestamp;
         record.p_hash = p_hash;
         record.status = RecordStatus::Pending;
-        // Not storing metadata_uri until minting, or we can just leave it to reveal_and_mint.
+        record.metadata_uri = "".to_string();
 
         msg!("Kredence | commit_content");
         msg!("  creator    : {}", record.creator);
@@ -54,6 +54,7 @@ pub mod anchor_kredence {
 
         let record = &mut ctx.accounts.content_record;
         record.status = RecordStatus::Minted;
+        record.metadata_uri = metadata_uri.clone();
 
         msg!("Kredence | reveal_and_mint");
         msg!("  creator      : {}", record.creator);
@@ -238,10 +239,10 @@ pub struct CommitContent<'info> {
     #[account(
         init,
         payer  = payer,
-        // Discriminator(8) + Pubkey(32) + i64(8) + String(4 + 64) + Enum(1)
-        space  = 8 + 32 + 8 + 68 + 1 + 32, // extra buffer just in case
+        // Discriminator(8) + Pubkey(32) + i64(8) + String(4 + 64) + Enum(1) + String(4 + 100)
+        space  = 300,
         // Split the 64-char hex pHash into two 32-byte halves for Solana seed limits.
-        seeds  = [b"content", p_hash.as_bytes().get(..32).unwrap(), p_hash.as_bytes().get(32..64).unwrap()],
+        seeds  = [b"content_v2", p_hash.as_bytes().get(..32).unwrap(), p_hash.as_bytes().get(32..64).unwrap()],
         bump
     )]
     pub content_record: Account<'info, ContentRecord>,
@@ -256,7 +257,7 @@ pub struct RevealAndMint<'info> {
 
     #[account(
         mut,
-        seeds = [b"content", content_record.p_hash.as_bytes().get(..32).unwrap(), content_record.p_hash.as_bytes().get(32..64).unwrap()],
+        seeds = [b"content_v2", content_record.p_hash.as_bytes().get(..32).unwrap(), content_record.p_hash.as_bytes().get(32..64).unwrap()],
         bump,
     )]
     pub content_record: Account<'info, ContentRecord>,
@@ -297,7 +298,7 @@ pub struct PurchaseLicense<'info> {
     pub creator_wallet: UncheckedAccount<'info>,
 
     #[account(
-        seeds = [b"content", content_record.p_hash.as_bytes().get(..32).unwrap(), content_record.p_hash.as_bytes().get(32..64).unwrap()],
+        seeds = [b"content_v2", content_record.p_hash.as_bytes().get(..32).unwrap(), content_record.p_hash.as_bytes().get(32..64).unwrap()],
         bump,
     )]
     pub content_record: Account<'info, ContentRecord>,
@@ -329,6 +330,7 @@ pub struct ContentRecord {
     pub commit_time: i64,
     pub p_hash: String,
     pub status: RecordStatus,
+    pub metadata_uri: String,
 }
 
 #[event]

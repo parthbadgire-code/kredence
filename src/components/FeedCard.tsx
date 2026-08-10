@@ -10,6 +10,7 @@ interface FeedCardProps {
   timestamp: number;
   channel: string;
   disputeStatus: "active" | "disputed";
+  metadataUri?: string;
 }
 
 export default function FeedCard({
@@ -19,8 +20,28 @@ export default function FeedCard({
   timestamp,
   channel,
   disputeStatus,
+  metadataUri,
 }: FeedCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!metadataUri || !metadataUri.startsWith("ipfs://")) return;
+    
+    const fetchMetadata = async () => {
+      try {
+        const hash = metadataUri.replace("ipfs://", "");
+        const res = await fetch(`https://gateway.pinata.cloud/ipfs/${hash}`);
+        const data = await res.json();
+        if (data.image && data.image.startsWith("ipfs://")) {
+          setImageUrl(data.image.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/"));
+        }
+      } catch (err) {
+        console.error("Failed to load IPFS metadata", err);
+      }
+    };
+    fetchMetadata();
+  }, [metadataUri]);
 
   // Generate a deterministic abstract pattern based on the hash (Option A)
   const generatePattern = (hashString: string) => {
@@ -82,7 +103,17 @@ export default function FeedCard({
         </div>
 
         {/* Media / Hash Visual */}
-        {generatePattern(hash)}
+        {imageUrl ? (
+          <div className="w-full h-48 sm:h-64 rounded-xl overflow-hidden relative flex items-center justify-center border border-zinc-800/50 bg-black">
+            <img src={imageUrl} alt="Content" className="object-cover w-full h-full opacity-90 transition-opacity hover:opacity-100" />
+            <div className="absolute bottom-2 left-2 flex flex-col gap-0.5 z-10 backdrop-blur-md bg-black/60 px-3 py-1.5 rounded-lg border border-white/10">
+              <span className="text-white/60 text-[9px] uppercase tracking-widest font-mono">Fingerprint</span>
+              <span className="text-white/90 text-xs font-mono tracking-wider">{hash.slice(0,12)}...</span>
+            </div>
+          </div>
+        ) : (
+          generatePattern(hash)
+        )}
 
         {/* Footer Actions */}
         <div className="flex flex-col sm:flex-row gap-3 mt-2">

@@ -28,7 +28,7 @@ export function deriveContentRecordPDA(pHash: string): [PublicKey, number] {
   const pHashBytes = Buffer.from(pHash); // 64 bytes (ASCII hex chars)
   return PublicKey.findProgramAddressSync(
     [
-      Buffer.from("content"),
+      Buffer.from("content_v2"),
       pHashBytes.slice(0, 32),  // first 32 bytes
       pHashBytes.slice(32, 64), // second 32 bytes
     ],
