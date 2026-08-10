@@ -462,7 +462,12 @@ export default function Home() {
 
         {/* Wallet Adapter Bar */}
         <div className="flex flex-col items-center gap-3">
-          <WalletMultiButton />
+          <div className="flex items-center gap-3">
+            <WalletMultiButton />
+            <a href="/feed" className="flex items-center justify-center rounded-xl bg-purple-600 hover:bg-purple-500 px-5 py-3 text-sm font-bold text-white shadow-[0_0_20px_rgba(147,51,234,0.3)] transition-all">
+              Go to Community Feed →
+            </a>
+          </div>
           {connected && balance !== null && (
             <div className="flex items-center gap-2 text-xs font-mono text-zinc-400">
               <span className={`h-1.5 w-1.5 rounded-full ${balance < 0.01 ? "bg-amber-400" : "bg-emerald-400"}`} />
@@ -600,7 +605,7 @@ export default function Home() {
           </section>
 
           {/* CARD 2: Originality Checker */}
-          <section className="rounded-3xl border border-zinc-800/70 bg-[#0a0a0d]/80 backdrop-blur-md p-8 sm:p-10 flex flex-col gap-6 shadow-2xl shadow-black/50">
+          <section id="originality-check" className="rounded-3xl border border-zinc-800/70 bg-[#0a0a0d]/80 backdrop-blur-md p-8 sm:p-10 flex flex-col gap-6 shadow-2xl shadow-black/50">
             <div className="flex items-center justify-between border-b border-zinc-800/50 pb-5">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-950/40 border border-indigo-800/40 text-indigo-200 text-xs font-mono">
@@ -736,7 +741,7 @@ export default function Home() {
           </section>
 
           {/* CARD 3: My Claims History */}
-          <section className="rounded-3xl border border-zinc-800/70 bg-[#0a0a0d]/80 backdrop-blur-md p-8 sm:p-10 flex flex-col gap-6 shadow-2xl shadow-black/50">
+          <section id="history" className="rounded-3xl border border-zinc-800/70 bg-[#0a0a0d]/80 backdrop-blur-md p-8 sm:p-10 flex flex-col gap-6 shadow-2xl shadow-black/50">
             <div className="flex items-center justify-between border-b border-zinc-800/50 pb-5">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sky-950/40 border border-sky-800/40 text-sky-200 text-xs font-mono">
@@ -803,6 +808,14 @@ export default function Home() {
                 ))}
               </div>
             ) : null}
+          </section>
+
+          {/* About Us Section */}
+          <section id="about-us" className="rounded-3xl border border-zinc-800/70 bg-[#0a0a0d]/80 backdrop-blur-md p-8 sm:p-10 flex flex-col gap-4 shadow-2xl shadow-black/50 text-center mt-12 mb-12">
+            <h2 className="text-2xl font-bold tracking-tight text-zinc-100 font-heading">About Us</h2>
+            <p className="text-sm text-zinc-400 leading-relaxed max-w-2xl mx-auto">
+              Kredence is a decentralized media provenance protocol built on Solana. We empower creators to cryptographically prove the originality of their content using client-side hashing and on-chain commit-reveal schemes. Built with ❤️ for the Solana Hackathon.
+            </p>
           </section>
 
         </div>
