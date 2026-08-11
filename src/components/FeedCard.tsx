@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Clock, AlertTriangle, ShieldCheck, User, Gavel, Coins } from "lucide-react";
+import { Clock, AlertTriangle, ShieldCheck, User, Gavel, Coins, CheckCircle2 } from "lucide-react";
 import DisputeModal from "./DisputeModal";
 import { getExplorerUrl, truncateSig } from "@/lib/utils";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
@@ -48,6 +48,7 @@ export default function FeedCard({
   const [isResolving, setIsResolving] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
   const [isLicensing, setIsLicensing] = useState(false);
+  const [hasLicensed, setHasLicensed] = useState(false);
 
   const getProgram = () => {
     const provider = new AnchorProvider(connection, wallet as any, { commitment: "confirmed" });
@@ -87,6 +88,15 @@ export default function FeedCard({
     };
     fetchEvidence();
   }, [evidenceUrl]);
+
+  useEffect(() => {
+    if (wallet.publicKey) {
+      const stored = JSON.parse(localStorage.getItem(`licenses_${wallet.publicKey.toString()}`) || "[]");
+      if (stored.includes(hash)) {
+        setHasLicensed(true);
+      }
+    }
+  }, [wallet.publicKey, hash]);
 
   // Generate a deterministic abstract pattern based on the hash (Option A)
   const generatePattern = (hashString: string) => {
@@ -234,6 +244,12 @@ export default function FeedCard({
         } as any)
         .rpc();
 
+      const stored = JSON.parse(localStorage.getItem(`licenses_${wallet.publicKey.toString()}`) || "[]");
+      if (!stored.includes(hash)) {
+        stored.push(hash);
+        localStorage.setItem(`licenses_${wallet.publicKey.toString()}`, JSON.stringify(stored));
+      }
+      setHasLicensed(true);
       alert("License Purchased Successfully for 0.1 SOL!");
     } catch (err: any) {
       console.error(err);
@@ -320,13 +336,22 @@ export default function FeedCard({
         <div className="flex flex-col sm:flex-row gap-3 mt-2">
           {!isDisputed && !isResolved && (
             <>
-              <button
-                disabled={isLicensing}
-                onClick={handleLicense}
-                className="flex-1 rounded-xl bg-purple-900/50 hover:bg-purple-800/60 border border-purple-700/50 px-4 py-3 text-sm font-medium text-purple-100 transition-all disabled:opacity-50"
-              >
-                {isLicensing ? "Purchasing..." : "License for 0.1 SOL"}
-              </button>
+              {hasLicensed ? (
+                <button
+                  disabled
+                  className="flex-1 rounded-xl bg-purple-950/30 border border-purple-900/50 px-4 py-3 text-sm font-medium text-purple-400 transition-all flex items-center justify-center gap-2"
+                >
+                  <CheckCircle2 size={16} /> LICENSED
+                </button>
+              ) : (
+                <button
+                  disabled={isLicensing}
+                  onClick={handleLicense}
+                  className="flex-1 rounded-xl bg-purple-900/50 hover:bg-purple-800/60 border border-purple-700/50 px-4 py-3 text-sm font-medium text-purple-100 transition-all disabled:opacity-50"
+                >
+                  {isLicensing ? "Purchasing..." : "License for 0.1 SOL"}
+                </button>
+              )}
               <button
                 onClick={() => setIsModalOpen(true)}
                 className="flex-1 rounded-xl bg-zinc-900/50 hover:bg-zinc-800/60 border border-zinc-700/50 px-4 py-3 text-sm font-medium text-zinc-300 transition-all"

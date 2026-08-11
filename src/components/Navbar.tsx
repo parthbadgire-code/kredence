@@ -13,8 +13,9 @@ export default function Navbar() {
         <div className="hidden md:flex items-center gap-8 text-sm font-medium text-zinc-400">
           <Link href="/" className="hover:text-zinc-100 transition-colors">Home</Link>
           <Link href="/#originality-check" className="hover:text-zinc-100 transition-colors">Originality Check</Link>
-          <Link href="/#history" className="hover:text-zinc-100 transition-colors">History</Link>
           <Link href="/feed" className="hover:text-zinc-100 transition-colors">Feed</Link>
+          <Link href="/licenses" className="hover:text-zinc-100 transition-colors">My Licenses</Link>
+          <Link href="/#history" className="hover:text-zinc-100 transition-colors">History</Link>
           <Link href="/#about-us" className="hover:text-zinc-100 transition-colors">About Us</Link>
         </div>
 
