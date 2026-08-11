@@ -810,14 +810,6 @@ export default function Home() {
             ) : null}
           </section>
 
-          {/* About Us Section */}
-          <section id="about-us" className="rounded-3xl border border-zinc-800/70 bg-[#0a0a0d]/80 backdrop-blur-md p-8 sm:p-10 flex flex-col gap-4 shadow-2xl shadow-black/50 text-center mt-12 mb-12">
-            <h2 className="text-2xl font-bold tracking-tight text-zinc-100 font-heading">About Us</h2>
-            <p className="text-sm text-zinc-400 leading-relaxed max-w-2xl mx-auto">
-              Kredence is a decentralized media provenance protocol built on Solana. We empower creators to cryptographically prove the originality of their content using client-side hashing and on-chain commit-reveal schemes. Built with ❤️ for the Solana Hackathon.
-            </p>
-          </section>
-
         </div>
 
         {/* Footer */}
