@@ -41,6 +41,7 @@ export default function FeedCard({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [evidenceData, setEvidenceData] = useState<{description?: string, external_url?: string, image?: string} | null>(null);
+  const [creatorUsername, setCreatorUsername] = useState<string>("");
 
   const { connection } = useConnection();
   const wallet = useWallet();
@@ -97,6 +98,16 @@ export default function FeedCard({
       }
     }
   }, [wallet.publicKey, hash]);
+
+  useEffect(() => {
+    // Attempt to load custom username from localStorage
+    const savedName = localStorage.getItem(`kredence_username_${creator}`);
+    if (savedName) {
+      setCreatorUsername(savedName);
+    } else {
+      setCreatorUsername(truncateSig(creator));
+    }
+  }, [creator]);
 
   // Generate a deterministic abstract pattern based on the hash (Option A)
   const generatePattern = (hashString: string) => {
@@ -269,9 +280,16 @@ export default function FeedCard({
             <span className="px-2.5 py-1 rounded-full bg-zinc-800/50 border border-zinc-700 text-xs font-semibold text-zinc-300">
               {channel}
             </span>
-            <div className="flex items-center gap-1.5 text-xs font-mono text-zinc-500">
-              <User size={12} />
-              <span>{truncateSig(creator)}</span>
+            <div className="flex items-center gap-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img 
+                src={`https://api.dicebear.com/7.x/identicon/svg?seed=${creator}`} 
+                alt="Avatar" 
+                className="w-5 h-5 rounded-full bg-zinc-800 border border-zinc-700" 
+              />
+              <span className="text-sm font-medium text-zinc-300">
+                {creatorUsername}
+              </span>
             </div>
             <div className="hidden sm:flex items-center gap-1.5 text-xs font-mono text-zinc-600">
               <Clock size={12} />
