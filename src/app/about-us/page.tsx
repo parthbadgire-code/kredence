@@ -14,7 +14,7 @@ export default function AboutUsPage() {
             About Kredence
           </h1>
           <p className="text-base md:text-lg text-zinc-400 leading-relaxed max-w-2xl mx-auto">
-            Kredence is a decentralized media provenance protocol built on Solana. We empower creators to cryptographically prove the originality of their content using client-side hashing and on-chain commit-reveal schemes. Built with ❤️ for the Solana Hackathon.
+            Kredence is a decentralized media provenance protocol built on Solana. We empower creators to cryptographically prove the originality of their content using client-side hashing and on-chain commit-reveal schemes.
           </p>
         </section>
 
