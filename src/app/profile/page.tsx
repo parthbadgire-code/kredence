@@ -35,6 +35,7 @@ export default function ProfilePage() {
   const [username, setUsername] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [activeTab, setActiveTab] = useState<"uploads" | "licenses">("uploads");
 
   useEffect(() => {
     if (wallet.publicKey) {
@@ -75,14 +76,21 @@ export default function ProfilePage() {
       const records = await (program.account as any).contentRecord.all();
       const pubKeyStr = wallet.publicKey!.toString();
 
+      const storedHashes: string[] = JSON.parse(
+        localStorage.getItem(`licenses_${pubKeyStr}`) || "[]"
+      );
+
       const items: FeedItem[] = [];
       for (const r of records) {
         const data = r.account;
         const creatorStr = data.creator.toString();
-        if (creatorStr !== pubKeyStr) continue;
-
         const hashStr = data.pHash as string;
         
+        const isUploader = creatorStr === pubKeyStr;
+        const isLicensed = storedHashes.includes(hashStr);
+
+        if (!isUploader && !isLicensed) continue;
+                
         // Pseudo-randomly assign a channel and dispute status based on hash for UI demo purposes
         let sum = 0;
         for (let i = 0; i < hashStr.length; i++) sum += hashStr.charCodeAt(i);
@@ -94,7 +102,7 @@ export default function ProfilePage() {
           hash: hashStr,
           creator: creatorStr,
           timestamp: data.commitTime.toNumber(),
-          channel: "My Uploads",
+          channel: isUploader ? "My Uploads" : "Licensed",
           disputeStatus: data.isDisputed ? "disputed" : "active",
           metadataUri: data.metadataUri as string,
           isDisputed: data.isDisputed,
@@ -141,9 +149,18 @@ export default function ProfilePage() {
           );
           
           const creatorStr = decoded.creator.toString();
-          if (!wallet.publicKey || creatorStr !== wallet.publicKey.toString()) return;
-
           const hashStr = decoded.pHash as string;
+          const pubKeyStr = wallet.publicKey!.toString();
+          
+          const storedHashes: string[] = JSON.parse(
+            localStorage.getItem(`licenses_${pubKeyStr}`) || "[]"
+          );
+
+          const isUploader = creatorStr === pubKeyStr;
+          const isLicensed = storedHashes.includes(hashStr);
+
+          if (!isUploader && !isLicensed) return;
+
           let sum = 0;
           for (let i = 0; i < hashStr.length; i++) sum += hashStr.charCodeAt(i);
           const isDisputed = sum % 10 === 0;
@@ -153,7 +170,7 @@ export default function ProfilePage() {
             hash: hashStr,
             creator: creatorStr,
             timestamp: decoded.commitTime.toNumber(),
-            channel: "My Uploads",
+            channel: isUploader ? "My Uploads" : "Licensed",
             disputeStatus: decoded.isDisputed ? "disputed" : "active",
             metadataUri: decoded.metadataUri as string,
             isDisputed: decoded.isDisputed,
@@ -255,9 +272,22 @@ export default function ProfilePage() {
         {/* Feed List */}
         <div className="flex flex-col gap-6">
           <div className="flex items-center justify-between border-b border-zinc-800/50 pb-3">
-            <h2 className="text-xl font-bold text-zinc-200 font-heading">My Registered Content</h2>
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={() => setActiveTab("uploads")}
+                className={`text-xl font-bold font-heading transition-colors ${activeTab === "uploads" ? "text-zinc-200" : "text-zinc-600 hover:text-zinc-400"}`}
+              >
+                My Uploads
+              </button>
+              <button 
+                onClick={() => setActiveTab("licenses")}
+                className={`text-xl font-bold font-heading transition-colors ${activeTab === "licenses" ? "text-zinc-200" : "text-zinc-600 hover:text-zinc-400"}`}
+              >
+                My Licenses
+              </button>
+            </div>
             <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-zinc-800/50 text-zinc-400 border border-zinc-700">
-              {feedItems.length} Items
+              {feedItems.filter(item => activeTab === "uploads" ? item.channel === "My Uploads" : item.channel === "Licensed").length} Items
             </span>
           </div>
 
@@ -266,13 +296,14 @@ export default function ProfilePage() {
               <Loader2 className="animate-spin" size={24} />
               <p className="text-sm">Fetching on-chain records...</p>
             </div>
-          ) : feedItems.length > 0 ? (
+          ) : feedItems.filter(item => activeTab === "uploads" ? item.channel === "My Uploads" : item.channel === "Licensed").length > 0 ? (
             // Sort to bring disputed items to the top
             feedItems
+              .filter(item => activeTab === "uploads" ? item.channel === "My Uploads" : item.channel === "Licensed")
               .sort((a, b) => (b.isDisputed ? 1 : 0) - (a.isDisputed ? 1 : 0))
               .map((item) => (
               <div key={item.pda} className="relative">
-                {item.isDisputed && !item.isResolved && (
+                {item.isDisputed && !item.isResolved && activeTab === "uploads" && (
                   <div className="absolute -top-3 left-6 z-20 px-3 py-1 rounded-full bg-amber-500 text-black text-[10px] font-bold uppercase tracking-wider shadow-lg shadow-amber-500/20 flex items-center gap-1.5 animate-pulse">
                     <AlertTriangle size={12} />
                     Active Dispute — Action Required
@@ -283,7 +314,9 @@ export default function ProfilePage() {
             ))
           ) : (
             <div className="flex flex-col items-center justify-center py-20 text-zinc-500 border border-dashed border-zinc-800 rounded-3xl">
-              <p className="text-sm">You haven&apos;t registered any content yet.</p>
+              <p className="text-sm text-center px-4">
+                You haven&apos;t {activeTab === "uploads" ? "registered" : "licensed"} any content yet.
+              </p>
             </div>
           )}
         </div>
