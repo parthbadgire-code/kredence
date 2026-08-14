@@ -13,7 +13,7 @@ anchor_kredence = "EMrHDb9yk3cjnnj2czRa7MRi6PTjWJukUnZ2Zt3jWNv6"
 anchor_kredence = "J8zY5tEUxTsz5U6EUPyreRn4vU2ZrxutWAWZtxyJptbp"
 
 [provider]
-cluster = "devnet"
+cluster = "https://devnet.helius-rpc.com/?api-key=607fb582-f22d-48ff-be88-cde253c0f014"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
