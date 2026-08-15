@@ -73,6 +73,8 @@ export default function DisputeModal({ isOpen, onClose, hash, pda, creator }: Di
         program.programId
       );
 
+      console.log("Program methods available:", Object.keys(program.methods));
+
       await program.methods
         .createDispute()
         .accounts({
@@ -86,8 +88,8 @@ export default function DisputeModal({ isOpen, onClose, hash, pda, creator }: Di
 
       setLockSuccess(true);
     } catch (err) {
-      console.error("Failed to raise dispute", err);
-      alert("Failed to raise dispute. See console.");
+      console.error("Failed to create dispute", err);
+      alert("Failed to create dispute (v2 deployment active). See console for keys.");
     } finally {
       setIsLocking(false);
     }

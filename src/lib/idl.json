@@ -21,34 +21,26 @@
       ],
       "accounts": [
         {
-          "name": "content_record",
+          "name": "dispute_record",
           "writable": true,
           "pda": {
             "seeds": [
               {
                 "kind": "const",
                 "value": [
-                  99,
-                  111,
-                  110,
+                  100,
+                  105,
+                  115,
+                  112,
+                  117,
                   116,
-                  101,
-                  110,
-                  116,
-                  95,
-                  118,
-                  50
+                  101
                 ]
               },
               {
                 "kind": "account",
-                "path": "content_record.p_hash",
-                "account": "ContentRecord"
-              },
-              {
-                "kind": "account",
-                "path": "content_record.p_hash",
-                "account": "ContentRecord"
+                "path": "dispute_record.content_mint",
+                "account": "DisputeRecord"
               }
             ]
           }
@@ -64,22 +56,34 @@
                   118,
                   111,
                   116,
-                  101
+                  101,
+                  95,
+                  114,
+                  101,
+                  99,
+                  101,
+                  105,
+                  112,
+                  116
                 ]
               },
               {
                 "kind": "account",
-                "path": "content_record"
+                "path": "dispute_record"
               },
               {
                 "kind": "account",
-                "path": "signer"
+                "path": "voter"
               }
             ]
           }
         },
         {
-          "name": "signer",
+          "name": "rep_token_account",
+          "writable": true
+        },
+        {
+          "name": "voter",
           "writable": true,
           "signer": true
         },
@@ -90,26 +94,13 @@
       ],
       "args": [
         {
-          "name": "vote_for_creator",
-          "type": "bool"
+          "name": "choice",
+          "type": "u8"
         }
       ]
     },
     {
       "name": "check_similarity",
-      "docs": [
-        "Instruction 3: check_similarity",
-        "",
-        "A pure, stateless helper instruction. It takes two 64-char hex pHashes,",
-        "computes the bitwise Hamming distance on-chain, and emits the result",
-        "via `SimilarityChecked` event so the client can read it from tx logs.",
-        "",
-        "Hamming distance interpretation (for SHA-256 of images):",
-        "- 0        : identical bytes (same file)",
-        "- 1–50     : very similar (near-duplicate)",
-        "- 50–200   : some similarity",
-        "- 200–256  : very different content"
-      ],
       "discriminator": [
         122,
         81,
@@ -139,47 +130,39 @@
       ]
     },
     {
-      "name": "claim_reward",
+      "name": "claim_reputation",
       "discriminator": [
-        149,
-        95,
-        181,
-        242,
-        94,
-        90,
-        158,
-        162
+        73,
+        120,
+        245,
+        41,
+        109,
+        127,
+        63,
+        241
       ],
       "accounts": [
         {
-          "name": "content_record",
+          "name": "dispute_record",
           "writable": true,
           "pda": {
             "seeds": [
               {
                 "kind": "const",
                 "value": [
-                  99,
-                  111,
-                  110,
+                  100,
+                  105,
+                  115,
+                  112,
+                  117,
                   116,
-                  101,
-                  110,
-                  116,
-                  95,
-                  118,
-                  50
+                  101
                 ]
               },
               {
                 "kind": "account",
-                "path": "content_record.p_hash",
-                "account": "ContentRecord"
-              },
-              {
-                "kind": "account",
-                "path": "content_record.p_hash",
-                "account": "ContentRecord"
+                "path": "dispute_record.content_mint",
+                "account": "DisputeRecord"
               }
             ]
           }
@@ -195,12 +178,20 @@
                   118,
                   111,
                   116,
-                  101
+                  101,
+                  95,
+                  114,
+                  101,
+                  99,
+                  101,
+                  105,
+                  112,
+                  116
                 ]
               },
               {
                 "kind": "account",
-                "path": "content_record"
+                "path": "dispute_record"
               },
               {
                 "kind": "account",
@@ -210,18 +201,52 @@
           }
         },
         {
+          "name": "kred_rep_mint",
+          "writable": true
+        },
+        {
+          "name": "winner_token_account",
+          "writable": true
+        },
+        {
+          "name": "mint_authority_pda",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  105,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
           "name": "voter",
           "writable": true,
           "signer": true
+        },
+        {
+          "name": "token_program"
         }
       ],
       "args": []
     },
     {
       "name": "commit_content",
-      "docs": [
-        "Instruction 1: commit_content"
-      ],
       "discriminator": [
         151,
         181,
@@ -240,12 +265,6 @@
         },
         {
           "name": "content_record",
-          "docs": [
-            "ContentRecord PDA — seeded by the pHash itself.",
-            "Anchor's `init` constraint unconditionally rejects initialising an",
-            "account that already exists → duplicate content is rejected at the",
-            "VM level automatically, satisfying collision prevention."
-          ],
           "writable": true,
           "pda": {
             "seeds": [
@@ -288,10 +307,62 @@
       ]
     },
     {
-      "name": "purchase_license",
-      "docs": [
-        "Instruction 4: purchase_license"
+      "name": "create_dispute",
+      "discriminator": [
+        161,
+        99,
+        53,
+        116,
+        60,
+        79,
+        149,
+        105
       ],
+      "accounts": [
+        {
+          "name": "dispute_record",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  100,
+                  105,
+                  115,
+                  112,
+                  117,
+                  116,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "content_mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "content_mint"
+        },
+        {
+          "name": "creator"
+        },
+        {
+          "name": "challenger",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "purchase_license",
       "discriminator": [
         42,
         213,
@@ -313,38 +384,6 @@
           "writable": true
         },
         {
-          "name": "content_record",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  110,
-                  116,
-                  101,
-                  110,
-                  116,
-                  95,
-                  118,
-                  50
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "content_record.p_hash",
-                "account": "ContentRecord"
-              },
-              {
-                "kind": "account",
-                "path": "content_record.p_hash",
-                "account": "ContentRecord"
-              }
-            ]
-          }
-        },
-        {
           "name": "system_program",
           "address": "11111111111111111111111111111111"
         }
@@ -353,69 +392,6 @@
         {
           "name": "fee_lamports",
           "type": "u64"
-        }
-      ]
-    },
-    {
-      "name": "raise_dispute",
-      "discriminator": [
-        41,
-        243,
-        1,
-        51,
-        150,
-        95,
-        246,
-        73
-      ],
-      "accounts": [
-        {
-          "name": "content_record",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  110,
-                  116,
-                  101,
-                  110,
-                  116,
-                  95,
-                  118,
-                  50
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "content_record.p_hash",
-                "account": "ContentRecord"
-              },
-              {
-                "kind": "account",
-                "path": "content_record.p_hash",
-                "account": "ContentRecord"
-              }
-            ]
-          }
-        },
-        {
-          "name": "challenger",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
-        }
-      ],
-      "args": [
-        {
-          "name": "evidence_url",
-          "type": "string"
         }
       ]
     },
@@ -433,59 +409,35 @@
       ],
       "accounts": [
         {
-          "name": "content_record",
+          "name": "dispute_record",
           "writable": true,
           "pda": {
             "seeds": [
               {
                 "kind": "const",
                 "value": [
-                  99,
-                  111,
-                  110,
+                  100,
+                  105,
+                  115,
+                  112,
+                  117,
                   116,
-                  101,
-                  110,
-                  116,
-                  95,
-                  118,
-                  50
+                  101
                 ]
               },
               {
                 "kind": "account",
-                "path": "content_record.p_hash",
-                "account": "ContentRecord"
-              },
-              {
-                "kind": "account",
-                "path": "content_record.p_hash",
-                "account": "ContentRecord"
+                "path": "dispute_record.content_mint",
+                "account": "DisputeRecord"
               }
             ]
           }
-        },
-        {
-          "name": "creator",
-          "writable": true
-        },
-        {
-          "name": "challenger",
-          "writable": true
-        },
-        {
-          "name": "signer",
-          "writable": true,
-          "signer": true
         }
       ],
       "args": []
     },
     {
       "name": "reveal_and_mint",
-      "docs": [
-        "Instruction 2: reveal_and_mint"
-      ],
       "discriminator": [
         107,
         200,
@@ -504,60 +456,7 @@
         },
         {
           "name": "content_record",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  110,
-                  116,
-                  101,
-                  110,
-                  116,
-                  95,
-                  118,
-                  50
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "content_record.p_hash",
-                "account": "ContentRecord"
-              },
-              {
-                "kind": "account",
-                "path": "content_record.p_hash",
-                "account": "ContentRecord"
-              }
-            ]
-          }
-        },
-        {
-          "name": "tree_config",
           "writable": true
-        },
-        {
-          "name": "merkle_tree",
-          "writable": true
-        },
-        {
-          "name": "log_wrapper",
-          "address": "noopb9bkMVfRPU8AsbpTUg8AQkHtKwMYZiFUjNRtMmV"
-        },
-        {
-          "name": "compression_program",
-          "address": "cmtDvXumGCrqC1Age74AVPhSRVXJMd8PJS91L8KbNCK"
-        },
-        {
-          "name": "bubblegum_program",
-          "address": "BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY"
-        },
-        {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
         }
       ],
       "args": [
@@ -580,6 +479,19 @@
         124,
         237,
         60
+      ]
+    },
+    {
+      "name": "DisputeRecord",
+      "discriminator": [
+        198,
+        199,
+        79,
+        209,
+        12,
+        215,
+        34,
+        47
       ]
     },
     {
@@ -632,53 +544,43 @@
     },
     {
       "code": 6001,
-      "name": "UnauthorizedCreator",
-      "msg": "Only the original creator can perform this action."
+      "name": "VotingClosed",
+      "msg": "Voting period is closed."
     },
     {
       "code": 6002,
-      "name": "AlreadyMinted",
-      "msg": "This content has already been minted."
+      "name": "InvalidChoice",
+      "msg": "Invalid vote choice."
     },
     {
       "code": 6003,
-      "name": "InvalidHex",
-      "msg": "Invalid hex string provided for Hamming distance calculation."
+      "name": "VotingActive",
+      "msg": "Voting is still active."
     },
     {
       "code": 6004,
-      "name": "InvalidCreatorWallet",
-      "msg": "Creator wallet address does not match the content record."
-    },
-    {
-      "code": 6005,
-      "name": "AlreadyDisputed",
-      "msg": "Content is already disputed."
-    },
-    {
-      "code": 6006,
-      "name": "NotDisputed",
-      "msg": "Content is not disputed."
-    },
-    {
-      "code": 6007,
       "name": "AlreadyResolved",
       "msg": "Dispute is already resolved."
     },
     {
-      "code": 6008,
+      "code": 6005,
       "name": "NotResolved",
       "msg": "Dispute is not resolved yet."
     },
     {
-      "code": 6009,
+      "code": 6006,
       "name": "VotedForLoser",
       "msg": "You did not vote for the winner."
     },
     {
-      "code": 6010,
-      "name": "NoWinningVotes",
-      "msg": "No winning votes to distribute yield to."
+      "code": 6007,
+      "name": "PlatformLocked",
+      "msg": "Tokens cannot be transferred."
+    },
+    {
+      "code": 6008,
+      "name": "AlreadyClaimed",
+      "msg": "Already claimed."
     }
   ],
   "types": [
@@ -743,31 +645,54 @@
       }
     },
     {
-      "name": "LicenseIssued",
+      "name": "DisputeRecord",
       "type": {
         "kind": "struct",
         "fields": [
-          {
-            "name": "buyer",
-            "type": "pubkey"
-          },
           {
             "name": "creator",
             "type": "pubkey"
           },
           {
-            "name": "p_hash",
-            "type": "string"
+            "name": "content_mint",
+            "type": "pubkey"
           },
           {
-            "name": "fee_paid",
+            "name": "start_time",
+            "type": "i64"
+          },
+          {
+            "name": "end_time",
+            "type": "i64"
+          },
+          {
+            "name": "original_votes",
             "type": "u64"
           },
           {
-            "name": "timestamp",
-            "type": "i64"
+            "name": "counterfeit_votes",
+            "type": "u64"
+          },
+          {
+            "name": "is_resolved",
+            "type": "bool"
+          },
+          {
+            "name": "winning_side",
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
           }
         ]
+      }
+    },
+    {
+      "name": "LicenseIssued",
+      "type": {
+        "kind": "struct",
+        "fields": []
       }
     },
     {
@@ -799,16 +724,10 @@
           },
           {
             "name": "distance",
-            "docs": [
-              "Number of bits that differ between the two hashes (0–256)."
-            ],
             "type": "u32"
           },
           {
             "name": "label",
-            "docs": [
-              "Human-readable label: IDENTICAL | VERY_SIMILAR | SOMEWHAT_SIMILAR | DIFFERENT"
-            ],
             "type": "string"
           }
         ]
@@ -820,7 +739,23 @@
         "kind": "struct",
         "fields": [
           {
-            "name": "voted_for_creator",
+            "name": "voter",
+            "type": "pubkey"
+          },
+          {
+            "name": "dispute",
+            "type": "pubkey"
+          },
+          {
+            "name": "choice",
+            "type": "u8"
+          },
+          {
+            "name": "weight",
+            "type": "u64"
+          },
+          {
+            "name": "claimed",
             "type": "bool"
           }
         ]
