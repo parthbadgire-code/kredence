@@ -436,6 +436,7 @@ export default function FeedCard({
         onClose={() => setIsModalOpen(false)} 
         hash={hash}
         pda={pda}
+        creator={creator}
       />
     </>
   );

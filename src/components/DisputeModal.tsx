@@ -10,9 +10,10 @@ interface DisputeModalProps {
   onClose: () => void;
   hash: string;
   pda: string;
+  creator: string;
 }
 
-export default function DisputeModal({ isOpen, onClose, hash, pda }: DisputeModalProps) {
+export default function DisputeModal({ isOpen, onClose, hash, pda, creator }: DisputeModalProps) {
   const [description, setDescription] = useState("");
   const [referenceUrl, setReferenceUrl] = useState("");
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
@@ -65,11 +66,19 @@ export default function DisputeModal({ isOpen, onClose, hash, pda }: DisputeModa
       const program = new Program(IDL as Idl, provider);
 
       const contentRecordPda = new PublicKey(pda);
+      const creatorPubkey = new PublicKey(creator);
+
+      const [disputeRecordPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from("dispute"), contentRecordPda.toBuffer()],
+        program.programId
+      );
 
       await program.methods
-        .raiseDispute(ipfsEvidenceUrl)
+        .createDispute()
         .accounts({
-          contentRecord: contentRecordPda,
+          disputeRecord: disputeRecordPda,
+          contentMint: contentRecordPda,
+          creator: creatorPubkey,
           challenger: wallet.publicKey,
           systemProgram: SystemProgram.programId,
         } as any)
