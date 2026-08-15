@@ -7,7 +7,8 @@ import { Program, AnchorProvider, Idl } from "@coral-xyz/anchor";
 import IDL from "@/lib/idl.json";
 import BackgroundCanvas from "@/components/BackgroundCanvas";
 import FeedCard from "@/components/FeedCard";
-import { Loader2 } from "lucide-react";
+import DisputeCard from "@/components/DisputeCard";
+import { Loader2, Gavel } from "lucide-react";
 
 const CHANNELS = ["All", "c/memes", "c/leaks", "c/art"];
 
@@ -27,37 +28,49 @@ interface FeedItem {
   evidenceUrl: string;
 }
 
+interface DisputeItem {
+  disputePda: string;
+  contentMint: string;
+  creator: string;
+  endTime: number;
+  isResolved: boolean;
+  winningSide: number;
+  originalVotes: number;
+  counterfeitVotes: number;
+}
+
 export default function FeedPage() {
   const { connection } = useConnection();
   const wallet = useWallet();
   const [activeChannel, setActiveChannel] = useState("All");
   const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
+  const [disputes, setDisputes] = useState<DisputeItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const getReadOnlyProgram = useCallback(() => {
+    const dummyWallet = {
+      publicKey: wallet.publicKey || null,
+      signTransaction: () => Promise.reject(),
+      signAllTransactions: () => Promise.reject(),
+    };
+    const provider = new AnchorProvider(connection, dummyWallet as any, { commitment: "confirmed" });
+    return new Program(IDL as Idl, provider);
+  }, [connection, wallet.publicKey]);
 
   const fetchFeed = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Create a read-only provider if wallet is not connected
-      const dummyWallet = {
-        publicKey: wallet.publicKey || null,
-        signTransaction: () => Promise.reject(),
-        signAllTransactions: () => Promise.reject(),
-      };
-      const provider = new AnchorProvider(connection, dummyWallet as any, { commitment: "confirmed" });
-      const program = new Program(IDL as Idl, provider);
+      const program = getReadOnlyProgram();
 
+      // Fetch content records
       const records = await (program.account as any).contentRecord.all();
-
       const items: FeedItem[] = records.map((r: any) => {
         const data = r.account;
         const hashStr = data.pHash as string;
-        
-        // Pseudo-randomly assign a channel and dispute status based on hash for UI demo purposes
+
         let sum = 0;
         for (let i = 0; i < hashStr.length; i++) sum += hashStr.charCodeAt(i);
-        
-        const channelAssigned = CHANNELS[(sum % (CHANNELS.length - 1)) + 1]; // Skip "All"
-        const isDisputed = sum % 10 === 0; // ~10% chance of being disputed
+        const channelAssigned = CHANNELS[(sum % (CHANNELS.length - 1)) + 1];
 
         return {
           pda: r.publicKey.toString(),
@@ -75,46 +88,49 @@ export default function FeedPage() {
           evidenceUrl: data.evidenceUrl as string,
         };
       });
-
-      // Sort newest first
       items.sort((a, b) => b.timestamp - a.timestamp);
       setFeedItems(items);
+
+      // Fetch dispute records
+      const disputeRecords = await (program.account as any).disputeRecord.all();
+      const disputeItems: DisputeItem[] = disputeRecords.map((d: any) => ({
+        disputePda: d.publicKey.toString(),
+        contentMint: d.account.contentMint.toString(),
+        creator: d.account.creator.toString(),
+        endTime: d.account.endTime.toNumber(),
+        isResolved: d.account.isResolved,
+        winningSide: d.account.winningSide,
+        originalVotes: Number(d.account.originalVotes),
+        counterfeitVotes: Number(d.account.counterfeitVotes),
+      }));
+      setDisputes(disputeItems);
+
     } catch (err) {
       console.error("Failed to fetch feed:", err);
     } finally {
       setIsLoading(false);
     }
-  }, [connection, wallet.publicKey]);
+  }, [getReadOnlyProgram]);
 
   useEffect(() => {
     fetchFeed();
   }, [fetchFeed]);
 
-  // WebSocket Listener for Real-Time Updates
+  // Real-time listener
   useEffect(() => {
-    const dummyWallet = {
-      publicKey: wallet.publicKey || null,
-      signTransaction: () => Promise.reject(),
-      signAllTransactions: () => Promise.reject(),
-    };
-    const provider = new AnchorProvider(connection, dummyWallet as any, { commitment: "confirmed" });
-    const program = new Program(IDL as Idl, provider);
-
+    const program = getReadOnlyProgram();
     const subId = connection.onProgramAccountChange(
       program.programId,
       (updatedAccountInfo) => {
         try {
-          // Decode the new or updated account data using Anchor coder
           const decoded = program.coder.accounts.decode(
             "contentRecord",
             updatedAccountInfo.accountInfo.data
           );
-          
           const hashStr = decoded.pHash as string;
           let sum = 0;
           for (let i = 0; i < hashStr.length; i++) sum += hashStr.charCodeAt(i);
           const channelAssigned = CHANNELS[(sum % (CHANNELS.length - 1)) + 1];
-          const isDisputed = sum % 10 === 0;
 
           const newItem: FeedItem = {
             pda: updatedAccountInfo.accountId.toString(),
@@ -143,7 +159,7 @@ export default function FeedPage() {
             }
           });
         } catch (e) {
-          // Ignore decoding errors (could be older PDAs or different account types)
+          // Ignore decoding errors
         }
       },
       "confirmed"
@@ -152,18 +168,21 @@ export default function FeedPage() {
     return () => {
       connection.removeProgramAccountChangeListener(subId);
     };
-  }, [connection, wallet.publicKey]);
+  }, [connection, getReadOnlyProgram]);
 
   const filteredItems = feedItems.filter(
     (item) => activeChannel === "All" || item.channel === activeChannel
   );
+
+  const activeDisputes = disputes.filter((d) => !d.isResolved);
+  const resolvedDisputes = disputes.filter((d) => d.isResolved);
 
   return (
     <main className="relative min-h-screen bg-[#050505] text-[#e5e5e7] selection:bg-purple-900/40 selection:text-purple-200">
       <BackgroundCanvas />
 
       <div className="relative z-10 mx-auto max-w-2xl px-4 py-8 sm:py-12 flex flex-col gap-8">
-        
+
         {/* Header */}
         <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -174,6 +193,59 @@ export default function FeedPage() {
           </div>
           <WalletMultiButton />
         </header>
+
+        {/* Active Disputes Panel */}
+        {!isLoading && activeDisputes.length > 0 && (
+          <section className="flex flex-col gap-4">
+            <div className="flex items-center gap-2">
+              <Gavel className="text-amber-400" size={18} />
+              <h2 className="text-base font-semibold text-amber-300">
+                Active Disputes ({activeDisputes.length})
+              </h2>
+              <span className="text-xs text-zinc-500 ml-1">Vote within the time window</span>
+            </div>
+            {activeDisputes.map((d) => (
+              <DisputeCard
+                key={d.disputePda}
+                disputePda={d.disputePda}
+                contentMint={d.contentMint}
+                creator={d.creator}
+                endTime={d.endTime}
+                isResolved={d.isResolved}
+                winningSide={d.winningSide}
+                originalVotes={d.originalVotes}
+                counterfeitVotes={d.counterfeitVotes}
+                onRefresh={fetchFeed}
+              />
+            ))}
+          </section>
+        )}
+
+        {/* Resolved Disputes Panel */}
+        {!isLoading && resolvedDisputes.length > 0 && (
+          <section className="flex flex-col gap-4">
+            <div className="flex items-center gap-2">
+              <Gavel className="text-blue-400" size={18} />
+              <h2 className="text-base font-semibold text-blue-300">
+                Resolved Disputes ({resolvedDisputes.length})
+              </h2>
+            </div>
+            {resolvedDisputes.map((d) => (
+              <DisputeCard
+                key={d.disputePda}
+                disputePda={d.disputePda}
+                contentMint={d.contentMint}
+                creator={d.creator}
+                endTime={d.endTime}
+                isResolved={d.isResolved}
+                winningSide={d.winningSide}
+                originalVotes={d.originalVotes}
+                counterfeitVotes={d.counterfeitVotes}
+                onRefresh={fetchFeed}
+              />
+            ))}
+          </section>
+        )}
 
         {/* Channel Filter */}
         <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
