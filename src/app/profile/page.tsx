@@ -8,6 +8,7 @@ import { PublicKey } from "@solana/web3.js";
 import { getAssociatedTokenAddressSync, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 import IDL from "@/lib/idl.json";
 import BackgroundCanvas from "@/components/BackgroundCanvas";
+import NavBar from "@/components/NavBar";
 import FeedCard from "@/components/FeedCard";
 import { Loader2, AlertTriangle, UserCircle, CheckCircle2, Save, ShieldCheck } from "lucide-react";
 
@@ -226,23 +227,13 @@ export default function ProfilePage() {
   }, [connection, wallet.publicKey]);
 
 
-  return (
+    return (
     <main className="relative min-h-screen bg-[#050505] text-[#e5e5e7] selection:bg-purple-900/40 selection:text-purple-200">
       <BackgroundCanvas />
+      <NavBar />
 
       <div className="relative z-10 mx-auto max-w-2xl px-4 py-8 sm:py-12 flex flex-col gap-8">
         
-        {/* Header */}
-        <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-zinc-100 font-heading">
-              Creator Dashboard
-            </h1>
-            <p className="text-sm text-zinc-400 mt-1">Manage your identity and monitor your registered content.</p>
-          </div>
-          <WalletMultiButton />
-        </header>
-
         {/* Profile Settings Block */}
         {wallet.publicKey && (
           <div className="rounded-3xl border border-zinc-800/70 bg-[#0a0a0d]/80 backdrop-blur-md p-6 flex flex-col sm:flex-row gap-6 items-center shadow-xl">

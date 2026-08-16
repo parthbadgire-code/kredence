@@ -7,8 +7,9 @@ import { Program, AnchorProvider, Idl } from "@coral-xyz/anchor";
 import IDL from "@/lib/idl.json";
 import BackgroundCanvas from "@/components/BackgroundCanvas";
 import FeedCard from "@/components/FeedCard";
-import DisputeCard from "@/components/DisputeCard";
-import { Loader2, Gavel } from "lucide-react";
+import FeedCard from "@/components/FeedCard";
+import NavBar from "@/components/NavBar";
+import { Loader2 } from "lucide-react";
 
 const CHANNELS = ["All", "c/memes", "c/leaks", "c/art"];
 
@@ -28,25 +29,12 @@ interface FeedItem {
   evidenceUrl: string;
 }
 
-interface DisputeItem {
-  disputePda: string;
-  contentMint: string;
-  creator: string;
-  endTime: number;
-  isResolved: boolean;
-  winningSide: number;
-  originalVotes: number;
-  counterfeitVotes: number;
-  prizePool: number;
-  totalWinningVotes: number;
-}
 
 export default function FeedPage() {
   const { connection } = useConnection();
   const wallet = useWallet();
   const [activeChannel, setActiveChannel] = useState("All");
   const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
-  const [disputes, setDisputes] = useState<DisputeItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const getReadOnlyProgram = useCallback(() => {
@@ -92,38 +80,10 @@ export default function FeedPage() {
       setFeedItems(items);
     } catch (err) {
       console.error("Failed to fetch content records:", err);
+    } finally {
+      setIsLoading(false);
     }
-
-    // --- Dispute records: filter by exact new account size (123 bytes) to skip stale old-layout accounts ---
-    try {
-      // New DisputeRecord = 8 disc + 32+32+8+8+8+8+8+8+1+1+1 = 123 bytes
-      const NEW_DISPUTE_SIZE = 203;
-      const rawAccounts = await connection.getProgramAccounts(program.programId, {
-        filters: [{ dataSize: NEW_DISPUTE_SIZE }],
-      });
-      const disputeItems: DisputeItem[] = rawAccounts.map((a) => {
-        const decoded = program.coder.accounts.decode("disputeRecord", a.account.data);
-        return {
-          disputePda: a.pubkey.toString(),
-          contentMint: decoded.contentMint.toString(),
-          creator: decoded.creator.toString(),
-          endTime: decoded.endTime.toNumber(),
-          isResolved: decoded.isResolved,
-          winningSide: decoded.winningSide,
-          originalVotes: Number(decoded.originalVotes ?? 0),
-          counterfeitVotes: Number(decoded.counterfeitVotes ?? 0),
-          prizePool: Number(decoded.prizePool ?? 50_000_000),
-          totalWinningVotes: Number(decoded.totalWinningVotes ?? 0),
-        };
-      });
-      setDisputes(disputeItems);
-    } catch (err) {
-      console.error("Failed to fetch dispute records:", err);
-      setDisputes([]);
-    }
-
-    setIsLoading(false);
-  }, [getReadOnlyProgram]);
+  }, [connection, getReadOnlyProgram]);
 
   useEffect(() => {
     fetchFeed();
@@ -187,12 +147,10 @@ export default function FeedPage() {
     (item) => activeChannel === "All" || item.channel === activeChannel
   );
 
-  const activeDisputes = disputes.filter((d) => !d.isResolved);
-  const resolvedDisputes = disputes.filter((d) => d.isResolved);
-
   return (
     <main className="relative min-h-screen bg-[#050505] text-[#e5e5e7] selection:bg-purple-900/40 selection:text-purple-200">
       <BackgroundCanvas />
+      <NavBar />
 
       <div className="relative z-10 mx-auto max-w-2xl px-4 py-8 sm:py-12 flex flex-col gap-8">
 
@@ -204,65 +162,9 @@ export default function FeedPage() {
             </h1>
             <p className="text-sm text-zinc-400 mt-1">Discover and license verified original content.</p>
           </div>
-          <WalletMultiButton />
         </header>
 
-        {/* Active Disputes Panel */}
-        {!isLoading && activeDisputes.length > 0 && (
-          <section className="flex flex-col gap-4">
-            <div className="flex items-center gap-2">
-              <Gavel className="text-amber-400" size={18} />
-              <h2 className="text-base font-semibold text-amber-300">
-                Active Disputes ({activeDisputes.length})
-              </h2>
-              <span className="text-xs text-zinc-500 ml-1">Vote within the time window</span>
-            </div>
-            {activeDisputes.map((d) => (
-              <DisputeCard
-                key={d.disputePda}
-                disputePda={d.disputePda}
-                contentMint={d.contentMint}
-                creator={d.creator}
-                endTime={d.endTime}
-                isResolved={d.isResolved}
-                winningSide={d.winningSide}
-                originalVotes={d.originalVotes}
-                counterfeitVotes={d.counterfeitVotes}
-                prizePool={d.prizePool}
-                totalWinningVotes={d.totalWinningVotes}
-                onRefresh={fetchFeed}
-              />
-            ))}
-          </section>
-        )}
 
-        {/* Resolved Disputes Panel */}
-        {!isLoading && resolvedDisputes.length > 0 && (
-          <section className="flex flex-col gap-4">
-            <div className="flex items-center gap-2">
-              <Gavel className="text-blue-400" size={18} />
-              <h2 className="text-base font-semibold text-blue-300">
-                Resolved Disputes ({resolvedDisputes.length})
-              </h2>
-            </div>
-            {resolvedDisputes.map((d) => (
-              <DisputeCard
-                key={d.disputePda}
-                disputePda={d.disputePda}
-                contentMint={d.contentMint}
-                creator={d.creator}
-                endTime={d.endTime}
-                isResolved={d.isResolved}
-                winningSide={d.winningSide}
-                originalVotes={d.originalVotes}
-                counterfeitVotes={d.counterfeitVotes}
-                prizePool={d.prizePool}
-                totalWinningVotes={d.totalWinningVotes}
-                onRefresh={fetchFeed}
-              />
-            ))}
-          </section>
-        )}
 
         {/* Channel Filter */}
         <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
