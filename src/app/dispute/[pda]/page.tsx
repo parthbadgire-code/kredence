@@ -9,7 +9,6 @@ import { PublicKey, SystemProgram } from "@solana/web3.js";
 import { getAssociatedTokenAddressSync, TOKEN_2022_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import IDL from "@/lib/idl.json";
 import BackgroundCanvas from "@/components/BackgroundCanvas";
-import NavBar from "@/components/NavBar";
 import { Gavel, Clock, ExternalLink, ShieldCheck, ArrowLeft, Loader2, Link as LinkIcon, Image as ImageIcon } from "lucide-react";
 import Link from "next/link";
 
@@ -252,7 +251,6 @@ export default function DisputePage() {
   return (
     <main className="relative min-h-screen bg-[#050505] text-[#e5e5e7] selection:bg-amber-900/40 selection:text-amber-200 pb-20">
       <BackgroundCanvas />
-      <NavBar />
 
       <div className="relative z-10 mx-auto max-w-4xl px-4 py-8 sm:py-12 flex flex-col gap-8">
         <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

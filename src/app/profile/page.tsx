@@ -8,7 +8,6 @@ import { PublicKey } from "@solana/web3.js";
 import { getAssociatedTokenAddressSync, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 import IDL from "@/lib/idl.json";
 import BackgroundCanvas from "@/components/BackgroundCanvas";
-import NavBar from "@/components/NavBar";
 import FeedCard from "@/components/FeedCard";
 import { Loader2, AlertTriangle, UserCircle, CheckCircle2, Save, ShieldCheck } from "lucide-react";
 
@@ -230,7 +229,6 @@ export default function ProfilePage() {
     return (
     <main className="relative min-h-screen bg-[#050505] text-[#e5e5e7] selection:bg-purple-900/40 selection:text-purple-200">
       <BackgroundCanvas />
-      <NavBar />
 
       <div className="relative z-10 mx-auto max-w-2xl px-4 py-8 sm:py-12 flex flex-col gap-8">
         

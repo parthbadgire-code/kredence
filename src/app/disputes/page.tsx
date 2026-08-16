@@ -5,7 +5,6 @@ import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Program, AnchorProvider, Idl } from "@coral-xyz/anchor";
 import IDL from "@/lib/idl.json";
 import BackgroundCanvas from "@/components/BackgroundCanvas";
-import NavBar from "@/components/NavBar";
 import DisputeCard from "@/components/DisputeCard";
 import { Loader2, Gavel } from "lucide-react";
 
@@ -80,7 +79,6 @@ export default function DisputesPage() {
   return (
     <main className="relative min-h-screen bg-[#050505] text-[#e5e5e7] selection:bg-amber-900/40 selection:text-amber-200">
       <BackgroundCanvas />
-      <NavBar />
 
       <div className="relative z-10 mx-auto max-w-6xl px-4 py-8 sm:py-12 flex flex-col gap-8">
         
