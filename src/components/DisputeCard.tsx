@@ -4,7 +4,7 @@ import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Program, AnchorProvider, Idl, BN } from "@coral-xyz/anchor";
 import { PublicKey, SystemProgram } from "@solana/web3.js";
 import IDL from "@/lib/idl.json";
-import { getAssociatedTokenAddressSync, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
+import { getAssociatedTokenAddressSync, TOKEN_2022_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
 // KRED_REP Token-2022 mint — created on Devnet, mint authority = program PDA
 const KRED_REP_MINT = new PublicKey("6u6qVLPhpwyMy9PbtAA1P8q1PKG1615mohCW6HcuXEAB");
@@ -214,6 +214,8 @@ export default function DisputeCard({
           mintAuthorityPda,
           voter: wallet.publicKey,
           tokenProgram: TOKEN_2022_PROGRAM_ID,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
         } as any)
         .rpc();
 
