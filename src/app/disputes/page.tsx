@@ -47,21 +47,24 @@ export default function DisputesPage() {
         filters: [{ dataSize: NEW_DISPUTE_SIZE }],
       });
 
-      const items: DisputeItem[] = rawAccounts.map((acct) => {
-        const decoded = program.coder.accounts.decode("disputeRecord", acct.account.data);
-        return {
-          disputePda: acct.pubkey.toString(),
-          contentMint: decoded.contentMint.toString(),
-          creator: decoded.creator.toString(),
-          endTime: decoded.endTime.toNumber(),
-          isResolved: decoded.isResolved,
-          winningSide: decoded.winningSide,
-          originalVotes: decoded.originalVotes.toNumber(),
-          counterfeitVotes: decoded.counterfeitVotes.toNumber(),
-          prizePool: decoded.prizePool.toNumber(),
-          totalWinningVotes: decoded.totalWinningVotes.toNumber(),
-        };
-      });
+      const CUTOFF_TIMESTAMP = 1786891742; // Soft-delete cutoff
+      const items: DisputeItem[] = rawAccounts
+        .map((acct) => {
+          const decoded = program.coder.accounts.decode("disputeRecord", acct.account.data);
+          return {
+            disputePda: acct.pubkey.toString(),
+            contentMint: decoded.contentMint.toString(),
+            creator: decoded.creator.toString(),
+            endTime: decoded.endTime.toNumber(),
+            isResolved: decoded.isResolved,
+            winningSide: decoded.winningSide,
+            originalVotes: decoded.originalVotes.toNumber(),
+            counterfeitVotes: decoded.counterfeitVotes.toNumber(),
+            prizePool: decoded.prizePool.toNumber(),
+            totalWinningVotes: decoded.totalWinningVotes.toNumber(),
+          };
+        })
+        .filter((item) => item.endTime > CUTOFF_TIMESTAMP);
 
       items.sort((a, b) => b.endTime - a.endTime);
       setDisputes(items);
