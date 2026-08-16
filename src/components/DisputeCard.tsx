@@ -264,21 +264,28 @@ export default function DisputeCard({
         <span className="text-sm font-bold font-mono text-amber-300">{prizePoolSOL} SOL</span>
       </div>
 
-      {/* Vote Tally Bar */}
-      <div className="flex flex-col gap-1.5">
-        <div className="flex justify-between text-xs text-zinc-500">
-          <span className="flex items-center gap-1"><BarChart2 size={12} /> Original: {originalVotes}</span>
-          <span>Counterfeit: {counterfeitVotes}</span>
+      {/* Vote Tally Bar — hidden while voting is active to prevent bias */}
+      {(timeLeft === 0 || isResolved) ? (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex justify-between text-xs text-zinc-500">
+            <span className="flex items-center gap-1"><BarChart2 size={12} /> Original: {originalVotes}</span>
+            <span>Counterfeit: {counterfeitVotes}</span>
+          </div>
+          <div className="flex h-2.5 rounded-full overflow-hidden bg-zinc-800">
+            <div className="bg-emerald-500 transition-all duration-500" style={{ width: `${originalPct}%` }} />
+            <div className="bg-rose-500 transition-all duration-500" style={{ width: `${counterfeitPct}%` }} />
+          </div>
+          <div className="flex justify-between text-xs">
+            <span className="text-emerald-400 font-medium">{originalPct}% Original</span>
+            <span className="text-rose-400 font-medium">{counterfeitPct}% Counterfeit</span>
+          </div>
         </div>
-        <div className="flex h-2.5 rounded-full overflow-hidden bg-zinc-800">
-          <div className="bg-emerald-500 transition-all duration-500" style={{ width: `${originalPct}%` }} />
-          <div className="bg-rose-500 transition-all duration-500" style={{ width: `${counterfeitPct}%` }} />
+      ) : (
+        <div className="flex items-center justify-center gap-2 py-2 text-xs text-zinc-600 italic">
+          <BarChart2 size={12} />
+          Results hidden until voting ends
         </div>
-        <div className="flex justify-between text-xs">
-          <span className="text-emerald-400 font-medium">{originalPct}% Original</span>
-          <span className="text-rose-400 font-medium">{counterfeitPct}% Counterfeit</span>
-        </div>
-      </div>
+      )}
 
       {/* Reward estimate for active disputes */}
       {!isResolved && totalVotes > 0 && (
