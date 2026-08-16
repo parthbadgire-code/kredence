@@ -380,32 +380,17 @@ export default function FeedCard({
           )}
 
           {isDisputed && !isResolved && (
-            <div className="flex flex-col w-full gap-2 border-t border-zinc-800/50 pt-4 mt-2">
-              <div className="flex items-center justify-between text-xs font-medium text-zinc-400 px-2 mb-1">
-                <span>Jury Voting Active</span>
-                <span>Creator: {creatorVotes} | Challenger: {challengerVotes}</span>
-              </div>
-              <div className="flex gap-2">
+            <div className="w-full border-t border-zinc-800/50 pt-4 mt-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-1.5 text-xs text-amber-400">
+                  <AlertTriangle size={12} />
+                  <span>Active dispute — vote in the Disputes panel above</span>
+                </div>
                 <button
-                  disabled={isVoting}
-                  onClick={() => handleVote(true)}
-                  className="flex-1 rounded-xl bg-emerald-900/30 hover:bg-emerald-800/40 border border-emerald-700/30 px-3 py-2 text-xs font-medium text-emerald-300 transition-all"
+                  onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+                  className="shrink-0 rounded-xl bg-amber-950/30 hover:bg-amber-900/40 border border-amber-800/40 px-3 py-2 text-xs font-medium text-amber-300 transition-all"
                 >
-                  Vote Original
-                </button>
-                <button
-                  disabled={isVoting}
-                  onClick={() => handleVote(false)}
-                  className="flex-1 rounded-xl bg-amber-900/30 hover:bg-amber-800/40 border border-amber-700/30 px-3 py-2 text-xs font-medium text-amber-300 transition-all"
-                >
-                  Vote Stolen
-                </button>
-                <button
-                  disabled={isResolving}
-                  onClick={handleResolve}
-                  className="flex-1 rounded-xl bg-blue-900/30 hover:bg-blue-800/40 border border-blue-700/30 px-3 py-2 text-xs font-medium text-blue-300 transition-all flex items-center justify-center gap-1"
-                >
-                  <Gavel size={14}/> Resolve & Slash
+                  View Dispute ↑
                 </button>
               </div>
             </div>
