@@ -101,6 +101,7 @@ pub mod anchor_kredence {
 
         let record = &mut ctx.accounts.dispute_record;
         record.creator = ctx.accounts.creator.key();
+        record.challenger = ctx.accounts.challenger.key();
         record.content_mint = ctx.accounts.content_mint.key();
         record.start_time = Clock::get()?.unix_timestamp;
         record.end_time = record.start_time + 120; // 2-minute voting window
@@ -112,6 +113,11 @@ pub mod anchor_kredence {
         record.winning_side = 0;
         record.bump = ctx.bumps.dispute_record;
         record.evidence_url = evidence_url;
+
+        let content_record = &mut ctx.accounts.content_record;
+        content_record.is_disputed = true;
+        content_record.challenger = ctx.accounts.challenger.key();
+        
         Ok(())
     }
 
@@ -163,15 +169,24 @@ pub mod anchor_kredence {
     // ----------------------------------------------------------------
     pub fn resolve_dispute(ctx: Context<ResolveDispute>) -> Result<()> {
         let dispute = &mut ctx.accounts.dispute_record;
+        let content_record = &mut ctx.accounts.content_record;
+
         require!(Clock::get()?.unix_timestamp >= dispute.end_time, KredenceError::VotingActive);
         require!(!dispute.is_resolved, KredenceError::AlreadyResolved);
 
         if dispute.original_votes >= dispute.counterfeit_votes {
             dispute.winning_side = 1;
             dispute.total_winning_votes = dispute.original_votes;
+            
+            content_record.winner_is_creator = true;
+            content_record.is_resolved = true;
         } else {
             dispute.winning_side = 2;
             dispute.total_winning_votes = dispute.counterfeit_votes;
+
+            content_record.creator = dispute.challenger;
+            content_record.winner_is_creator = false;
+            content_record.is_resolved = true;
         }
 
         dispute.is_resolved = true;
@@ -309,14 +324,14 @@ pub struct CreateDispute<'info> {
     #[account(
         init,
         payer = challenger,
-        // 8 disc + 32 creator + 32 content_mint + 8 start + 8 end
-        // + 8 orig_votes + 8 counter_votes + 8 prize_pool + 8 total_winning
-        // + 1 is_resolved + 1 winning_side + 1 bump + 4 + 76 evidence = 203
-        space = 8 + 32 + 32 + 8 + 8 + 8 + 8 + 8 + 8 + 1 + 1 + 1 + 80,
+        space = 8 + 32 + 32 + 32 + 8 + 8 + 8 + 8 + 8 + 8 + 1 + 1 + 1 + 80,
         seeds = [b"dispute", content_mint.key().as_ref()],
         bump
     )]
     pub dispute_record: Account<'info, DisputeRecord>,
+
+    #[account(mut)]
+    pub content_record: Account<'info, ContentRecord>,
 
     /// CHECK: The PDA of the content record being disputed
     pub content_mint: UncheckedAccount<'info>,
@@ -363,6 +378,9 @@ pub struct ResolveDispute<'info> {
         bump = dispute_record.bump
     )]
     pub dispute_record: Account<'info, DisputeRecord>,
+
+    #[account(mut)]
+    pub content_record: Account<'info, ContentRecord>,
 }
 
 #[derive(Accounts)]
@@ -436,6 +454,7 @@ pub struct ContentRecord {
 #[account]
 pub struct DisputeRecord {
     pub creator: Pubkey,           // 32
+    pub challenger: Pubkey,        // 32
     pub content_mint: Pubkey,      // 32
     pub start_time: i64,           // 8
     pub end_time: i64,             // 8

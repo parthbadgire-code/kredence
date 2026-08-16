@@ -299,13 +299,19 @@ export default function FeedCard({
           
           <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wider font-bold border ${
             isResolved
-              ? "bg-blue-950/30 text-blue-400 border-blue-900/50"
+              ? (winnerIsCreator 
+                  ? "bg-emerald-950/30 text-emerald-400 border-emerald-900/50" 
+                  : "bg-rose-950/30 text-rose-400 border-rose-900/50")
               : isDisputed 
               ? "bg-amber-950/30 text-amber-400 border-amber-900/50"
               : "bg-emerald-950/30 text-emerald-400 border-emerald-900/50" 
           }`}>
-            {isResolved ? <Gavel size={12} /> : isDisputed ? <AlertTriangle size={12} /> : <ShieldCheck size={12} />}
-            {isResolved ? "RESOLVED" : isDisputed ? "IN DISPUTE" : "OPTIMISTICALLY ACTIVE"}
+            {isResolved 
+              ? (winnerIsCreator ? <ShieldCheck size={12} /> : <AlertTriangle size={12} />) 
+              : isDisputed ? <AlertTriangle size={12} /> : <ShieldCheck size={12} />}
+            {isResolved 
+              ? (winnerIsCreator ? "ORIGINALITY VERIFIED" : "TRANSFERRED TO CHALLENGER") 
+              : isDisputed ? "ACTIVE DISPUTE" : "OPTIMISTICALLY ACTIVE"}
           </div>
         </div>
 

@@ -160,7 +160,7 @@ export default function DisputeCard({
 
       setVotedFor(choice);
       setHasVoteReceipt(true);
-      alert(`Vote cast for ${choice === 1 ? "Original ✅" : "Counterfeit ❌"}!`);
+      alert(`Vote cast for ${choice === 1 ? "Original ✅" : "Challenger ❌"}!`);
       onRefresh?.();
     } catch (e: any) {
       console.error("Vote error:", e);
@@ -179,7 +179,10 @@ export default function DisputeCard({
 
       await program.methods
         .resolveDispute()
-        .accounts({ disputeRecord: disputeRecordPubkey } as any)
+        .accounts({ 
+          disputeRecord: disputeRecordPubkey,
+          contentRecord: new PublicKey(contentMint)
+        } as any)
         .rpc();
 
       alert("Dispute Resolved!");
@@ -286,17 +289,17 @@ export default function DisputeCard({
       {/* Vote Tally Bar — hidden while voting is active to prevent bias */}
       {(timeLeft === 0 || isResolved) ? (
         <div className="flex flex-col gap-1.5">
-          <div className="flex justify-between text-xs text-zinc-500">
-            <span className="flex items-center gap-1"><BarChart2 size={12} /> Original: {originalVotes}</span>
-            <span>Counterfeit: {counterfeitVotes}</span>
-          </div>
+                  <div className="flex items-center justify-between text-xs font-mono mb-1 text-zinc-400">
+                    <span className="flex items-center gap-1"><ShieldCheck size={12}/> Original</span>
+                    <span className="flex items-center gap-1">Challenger <Zap size={12}/></span>
+                  </div>
           <div className="flex h-2.5 rounded-full overflow-hidden bg-zinc-800">
             <div className="bg-emerald-500 transition-all duration-500" style={{ width: `${originalPct}%` }} />
             <div className="bg-rose-500 transition-all duration-500" style={{ width: `${counterfeitPct}%` }} />
           </div>
           <div className="flex justify-between text-xs">
             <span className="text-emerald-400 font-medium">{originalPct}% Original</span>
-            <span className="text-rose-400 font-medium">{counterfeitPct}% Counterfeit</span>
+            <span className="text-rose-400 font-medium">{counterfeitPct}% Challenger</span>
           </div>
         </div>
       ) : (
@@ -340,7 +343,7 @@ export default function DisputeCard({
                   : "bg-rose-900/40 hover:bg-rose-800/60 text-rose-300 disabled:opacity-50"
               }`}
             >
-              {votedFor === 2 ? "✓ Voted Counterfeit" : "Vote Counterfeit"}
+              {votedFor === 2 ? "✓ Voted Challenger" : "Vote Challenger"}
             </button>
           </div>
         )}
@@ -368,7 +371,7 @@ export default function DisputeCard({
               <div className="p-3 rounded-lg bg-zinc-900/50 border border-zinc-800 flex flex-col gap-0.5">
                 <span className="text-xs text-zinc-500">Winner</span>
                 <span className={`text-sm font-bold ${winningSide === 1 ? "text-emerald-400" : "text-rose-400"}`}>
-                  {winningSide === 1 ? "✅ Original" : "❌ Counterfeit"}
+                  {winningSide === 1 ? "✅ Original" : "❌ Challenger"}
                 </span>
               </div>
               {hasVoteReceipt && (

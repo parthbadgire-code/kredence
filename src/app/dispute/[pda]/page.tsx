@@ -190,7 +190,7 @@ export default function DisputePage() {
         } as any)
         .rpc();
       
-      alert(`Vote cast for ${choice === 1 ? "Original ✅" : "Counterfeit ❌"}!`);
+      alert(`Vote cast for ${choice === 1 ? "Original ✅" : "Challenger ❌"}!`);
       fetchDispute();
     } catch(e: any) {
       alert("Vote failed: " + e.message);
@@ -204,7 +204,10 @@ export default function DisputePage() {
     setIsResolving(true);
     try {
       const program = getProgram();
-      await program.methods.resolveDispute().accounts({ disputeRecord: new PublicKey(pdaStr) } as any).rpc();
+      await program.methods.resolveDispute().accounts({ 
+        disputeRecord: new PublicKey(pdaStr),
+        contentRecord: new PublicKey(contentMint) 
+      } as any).rpc();
       alert("Dispute Resolved!");
       fetchDispute();
     } catch(e: any) {
@@ -332,7 +335,7 @@ export default function DisputePage() {
                     ✅ Original {timeLeft === 0 && `(${originalPct}%)`}
                   </span>
                   <span className="text-rose-400 flex items-center gap-1">
-                    {timeLeft === 0 && `(${counterfeitPct}%)`} Counterfeit ❌
+                    {timeLeft === 0 && `(${counterfeitPct}%)`} Challenger ❌
                   </span>
                 </div>
                 {timeLeft === 0 ? (
@@ -354,7 +357,7 @@ export default function DisputePage() {
                       {votedFor === 1 ? "✓ Voted Original" : "Vote Original"}
                     </button>
                     <button onClick={() => handleVote(2)} disabled={isVoting || votedFor !== null || hasVoteReceipt} className={`w-full py-3 rounded-xl font-bold transition-colors text-sm ${votedFor === 2 ? "bg-rose-700/60 text-rose-200 cursor-default" : "bg-rose-900/40 hover:bg-rose-800/60 text-rose-300 disabled:opacity-50"}`}>
-                      {votedFor === 2 ? "✓ Voted Counterfeit" : "Vote Counterfeit"}
+                      {votedFor === 2 ? "✓ Voted Challenger" : "Vote Challenger"}
                     </button>
                   </div>
                 )}
@@ -371,7 +374,7 @@ export default function DisputePage() {
                       <div className="p-4 rounded-xl bg-zinc-900/80 border border-zinc-800 flex flex-col gap-1 text-center">
                         <span className="text-xs text-zinc-500 uppercase font-bold tracking-wider">Winner</span>
                         <span className={`text-base font-bold ${winningSide === 1 ? "text-emerald-400" : "text-rose-400"}`}>
-                          {winningSide === 1 ? "✅ Original" : "❌ Counterfeit"}
+                          {winningSide === 1 ? "✅ Original" : "❌ Challenger"}
                         </span>
                       </div>
                       {hasVoteReceipt && (

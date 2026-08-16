@@ -42,7 +42,7 @@ export default function DisputesPage() {
     const program = getReadOnlyProgram();
 
     try {
-      const NEW_DISPUTE_SIZE = 203;
+      const NEW_DISPUTE_SIZE = 235; // Size of the upgraded DisputeRecord struct
       const rawAccounts = await connection.getProgramAccounts(program.programId, {
         filters: [{ dataSize: NEW_DISPUTE_SIZE }],
       });

@@ -84,6 +84,7 @@ export default function DisputeModal({ isOpen, onClose, hash, pda, creator }: Di
         .createDispute(data.evidenceUrl)
         .accounts({
           disputeRecord: disputeRecordPda,
+          contentRecord: contentRecordPda,
           contentMint: contentRecordPda,
           creator: creatorPubkey,
           challenger: wallet.publicKey,
