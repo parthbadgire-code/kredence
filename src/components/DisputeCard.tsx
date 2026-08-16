@@ -79,9 +79,12 @@ export default function DisputeCard({
         const acct = await connection.getAccountInfo(voteReceiptPda);
         if (acct) {
           setHasVoteReceipt(true);
-          // Decode weight from VoteReceipt: voter[32] + dispute[32] + choice[1] + weight[8]
-          // discriminator[8] + voter[32] + dispute[32] + choice[1] = 73 bytes before weight
+          // Decode choice and weight from VoteReceipt
+          // discriminator[8] + voter[32] + dispute[32] = 72 bytes
+          // choice[1] is at 72, weight[8] is at 73
           if (acct.data.length >= 81) {
+            const choice = acct.data[72];
+            setVotedFor(choice);
             const weight = Number(acct.data.readBigUInt64LE(73));
             setMyVoteWeight(weight);
           }
@@ -367,7 +370,7 @@ export default function DisputeCard({
               <div className="w-full py-3 rounded-xl bg-zinc-800/40 border border-zinc-700/40 text-zinc-500 text-sm text-center">
                 Checking eligibility...
               </div>
-            ) : hasVoteReceipt ? (
+            ) : hasVoteReceipt && votedFor === winningSide ? (
               <button
                 onClick={handleClaim}
                 disabled={isClaiming}
@@ -376,6 +379,10 @@ export default function DisputeCard({
                 <ShieldCheck size={16} />
                 {isClaiming ? "Claiming..." : `Claim ${estimatedRewardSOL} SOL + KRED_REP Badge`}
               </button>
+            ) : hasVoteReceipt && votedFor !== winningSide ? (
+              <div className="w-full py-3 rounded-xl bg-zinc-800/30 border border-zinc-700/30 text-rose-500/70 text-sm text-center flex items-center justify-center gap-2">
+                <ShieldCheck size={14} /> You voted for the loser — not eligible for reward
+              </div>
             ) : (
               <div className="w-full py-3 rounded-xl bg-zinc-800/30 border border-zinc-700/30 text-zinc-500 text-sm text-center flex items-center justify-center gap-2">
                 <ShieldCheck size={14} /> You did not vote — not eligible for reward
