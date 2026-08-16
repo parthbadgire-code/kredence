@@ -448,10 +448,6 @@ export default function Home() {
 
         {/* Header / Brand */}
         <header className="flex flex-col items-center text-center gap-4">
-          <div className="flex items-center gap-2 rounded-full border border-zinc-800/80 bg-zinc-900/40 px-4 py-1.5 text-xs font-mono text-zinc-400 backdrop-blur-sm">
-            <span className="h-1.5 w-1.5 rounded-full bg-purple-300/80" />
-            Solana Devnet Protocol
-          </div>
           <h1 className="text-5xl sm:text-6xl font-bold tracking-tight text-zinc-100 font-heading">
             Kredence
           </h1>

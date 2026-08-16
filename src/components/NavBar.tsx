@@ -3,15 +3,17 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
-import { ShieldCheck, Layers, Gavel, UserCircle } from "lucide-react";
+import { ShieldCheck, Layers, Gavel, UserCircle, Home, Info } from "lucide-react";
 
 export default function NavBar() {
   const pathname = usePathname();
 
   const links = [
+    { href: "/", label: "Home", icon: <Home size={18} />, exact: true },
     { href: "/feed", label: "Feed", icon: <Layers size={18} /> },
     { href: "/disputes", label: "Disputes", icon: <Gavel size={18} /> },
     { href: "/profile", label: "Profile", icon: <UserCircle size={18} /> },
+    { href: "/about-us", label: "About Us", icon: <Info size={18} /> },
   ];
 
   return (
@@ -19,15 +21,17 @@ export default function NavBar() {
       <div className="mx-auto max-w-6xl px-4 h-16 flex items-center justify-between">
         
         {/* Logo */}
-        <div className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <ShieldCheck className="text-purple-500" size={28} />
           <span className="font-heading font-bold text-xl tracking-wide text-zinc-100 hidden sm:block">Kredence</span>
-        </div>
+        </Link>
 
         {/* Links */}
         <div className="flex items-center gap-1 sm:gap-4 flex-1 justify-center">
           {links.map((link) => {
-            const isActive = pathname.startsWith(link.href);
+            const isActive = link.exact 
+              ? pathname === link.href 
+              : pathname.startsWith(link.href);
             return (
               <Link
                 key={link.href}
