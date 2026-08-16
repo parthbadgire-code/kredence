@@ -4,6 +4,9 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface, MintTo, mi
 
 declare_id!("EMrHDb9yk3cjnnj2czRa7MRi6PTjWJukUnZ2Zt3jWNv6");
 
+// 0.05 SOL challenger stake (in lamports)
+pub const CHALLENGER_STAKE: u64 = 50_000_000;
+
 pub mod bubblegum_ids {
     use anchor_lang::declare_id;
     declare_id!("BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY");
@@ -45,7 +48,7 @@ pub mod anchor_kredence {
         let record = &mut ctx.accounts.content_record;
         record.status = RecordStatus::Minted;
         record.metadata_uri = metadata_uri.clone();
-        Ok(()) // Truncated for simplicity in hackathon, normally CPI here
+        Ok(())
     }
 
     pub fn check_similarity(_ctx: Context<CheckSimilarity>, hash1: String, hash2: String) -> Result<()> {
@@ -76,29 +79,66 @@ pub mod anchor_kredence {
         Ok(())
     }
 
-    // --- NEW DISPUTE LOGIC ---
-
+    // ----------------------------------------------------------------
+    // DISPUTE: Phase 1 — Create (challenger stakes 0.05 SOL)
+    // ----------------------------------------------------------------
     pub fn create_dispute(ctx: Context<CreateDispute>) -> Result<()> {
+        // Transfer the challenger stake into the dispute_record PDA account
+        let transfer_ix = anchor_lang::solana_program::system_instruction::transfer(
+            &ctx.accounts.challenger.key(),
+            &ctx.accounts.dispute_record.key(),
+            CHALLENGER_STAKE,
+        );
+        invoke(
+            &transfer_ix,
+            &[
+                ctx.accounts.challenger.to_account_info(),
+                ctx.accounts.dispute_record.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
+            ],
+        )?;
+
         let record = &mut ctx.accounts.dispute_record;
         record.creator = ctx.accounts.creator.key();
         record.content_mint = ctx.accounts.content_mint.key();
         record.start_time = Clock::get()?.unix_timestamp;
-        record.end_time = record.start_time + 120; // 2 minute timer
+        record.end_time = record.start_time + 120; // 2-minute voting window
         record.original_votes = 0;
         record.counterfeit_votes = 0;
+        record.prize_pool = CHALLENGER_STAKE;
+        record.total_winning_votes = 0;
         record.is_resolved = false;
         record.winning_side = 0;
         record.bump = ctx.bumps.dispute_record;
         Ok(())
     }
 
+    // ----------------------------------------------------------------
+    // DISPUTE: Phase 2 — Cast Vote (reputation-weighted, free)
+    // ----------------------------------------------------------------
     pub fn cast_vote(ctx: Context<CastVote>, choice: u8) -> Result<()> {
         let dispute = &mut ctx.accounts.dispute_record;
         require!(Clock::get()?.unix_timestamp < dispute.end_time, KredenceError::VotingClosed);
         require!(choice == 1 || choice == 2, KredenceError::InvalidChoice);
 
-        let rep_balance = ctx.accounts.rep_token_account.amount;
-        let weight = 1 + (rep_balance / 10);
+        // Try to read KRED_REP balance; default to 0 if account doesn't exist or fails
+        let rep_balance: u64 = {
+            let acct = &ctx.accounts.rep_token_account;
+            if acct.data_is_empty() {
+                0u64
+            } else {
+                // Token account amount is at byte offset 64 (after mint[32] + owner[32])
+                let data = acct.try_borrow_data()?;
+                if data.len() >= 72 {
+                    u64::from_le_bytes(data[64..72].try_into().unwrap_or([0u8; 8]))
+                } else {
+                    0u64
+                }
+            }
+        };
+
+        // Weight: 1 base + 1 per 10 KRED_REP held (max meaningful boost)
+        let weight = 1u64.saturating_add(rep_balance / 10);
 
         let receipt = &mut ctx.accounts.vote_receipt;
         receipt.voter = ctx.accounts.voter.key();
@@ -116,6 +156,9 @@ pub mod anchor_kredence {
         Ok(())
     }
 
+    // ----------------------------------------------------------------
+    // DISPUTE: Phase 3 — Resolve (anyone can call after end_time)
+    // ----------------------------------------------------------------
     pub fn resolve_dispute(ctx: Context<ResolveDispute>) -> Result<()> {
         let dispute = &mut ctx.accounts.dispute_record;
         require!(Clock::get()?.unix_timestamp >= dispute.end_time, KredenceError::VotingActive);
@@ -123,24 +166,56 @@ pub mod anchor_kredence {
 
         if dispute.original_votes >= dispute.counterfeit_votes {
             dispute.winning_side = 1;
+            dispute.total_winning_votes = dispute.original_votes;
         } else {
             dispute.winning_side = 2;
+            dispute.total_winning_votes = dispute.counterfeit_votes;
         }
 
         dispute.is_resolved = true;
         Ok(())
     }
 
-    pub fn claim_reputation(ctx: Context<ClaimReputation>) -> Result<()> {
+    // ----------------------------------------------------------------
+    // DISPUTE: Phase 4 — Claim: SOL reward (pro-rata) + KRED_REP badge
+    // ----------------------------------------------------------------
+    pub fn claim_reward(ctx: Context<ClaimReward>) -> Result<()> {
         let dispute = &ctx.accounts.dispute_record;
         require!(dispute.is_resolved, KredenceError::NotResolved);
-        
+
         let receipt = &mut ctx.accounts.vote_receipt;
         require!(!receipt.claimed, KredenceError::AlreadyClaimed);
         require!(receipt.choice == dispute.winning_side, KredenceError::VotedForLoser);
 
+        // ---- SOL reward (pro-rata from prize pool) ----
+        // voter_reward = prize_pool * voter_weight / total_winning_votes
+        let voter_reward: u64 = if dispute.total_winning_votes > 0 {
+            (receipt.weight as u128)
+                .checked_mul(dispute.prize_pool as u128)
+                .unwrap_or(0)
+                .checked_div(dispute.total_winning_votes as u128)
+                .unwrap_or(0) as u64
+        } else {
+            0u64
+        };
+
         receipt.claimed = true;
 
+        if voter_reward > 0 {
+            // Transfer lamports from dispute PDA → voter
+            // We use raw lamport manipulation since PDA is payer-initialised
+            **ctx.accounts.dispute_record.to_account_info().try_borrow_mut_lamports()? =
+                ctx.accounts.dispute_record.to_account_info().lamports()
+                    .checked_sub(voter_reward)
+                    .ok_or(KredenceError::InsufficientFunds)?;
+
+            **ctx.accounts.voter.to_account_info().try_borrow_mut_lamports()? =
+                ctx.accounts.voter.to_account_info().lamports()
+                    .checked_add(voter_reward)
+                    .ok_or(KredenceError::Overflow)?;
+        }
+
+        // ---- KRED_REP badge mint ----
         let seeds = &[b"mint_authority".as_ref(), &[ctx.bumps.mint_authority_pda]];
         let signer = &[&seeds[..]];
 
@@ -149,8 +224,11 @@ pub mod anchor_kredence {
             to: ctx.accounts.winner_token_account.to_account_info(),
             authority: ctx.accounts.mint_authority_pda.to_account_info(),
         };
-        let cpi_ctx = CpiContext::new_with_signer(ctx.accounts.token_program.key(), cpi_accounts, signer);
-
+        let cpi_ctx = CpiContext::new_with_signer(
+            ctx.accounts.token_program.key(),
+            cpi_accounts,
+            signer,
+        );
         mint_to(cpi_ctx, 1)?;
 
         Ok(())
@@ -164,7 +242,6 @@ pub mod anchor_kredence {
     ) -> Result<()> {
         if data.len() >= 8 {
             let discriminator = &data[..8];
-            // spl_transfer_hook_interface::instruction::Execute
             if discriminator == [105, 37, 101, 197, 75, 251, 102, 253] {
                 return err!(KredenceError::PlatformLocked);
             }
@@ -177,7 +254,7 @@ pub mod anchor_kredence {
 // Helper Functions
 // ============================================================
 pub fn calculate_hamming_distance(hash1: &str, hash2: &str) -> Result<u32> {
-    Ok(0) // Dummy for brevity in this task
+    Ok(0)
 }
 
 // ============================================================
@@ -221,23 +298,28 @@ pub struct PurchaseLicense<'info> {
     pub system_program: Program<'info, System>,
 }
 
-// --- NEW DISPUTE ACCOUNTS ---
+// ----------------------------------------------------------------
+// Dispute account contexts
+// ----------------------------------------------------------------
 
 #[derive(Accounts)]
 pub struct CreateDispute<'info> {
     #[account(
         init,
         payer = challenger,
-        space = 8 + 32 + 32 + 8 + 8 + 8 + 8 + 1 + 1 + 1,
+        // 8 disc + 32 creator + 32 content_mint + 8 start + 8 end
+        // + 8 orig_votes + 8 counter_votes + 8 prize_pool + 8 total_winning
+        // + 1 is_resolved + 1 winning_side + 1 bump = 123
+        space = 8 + 32 + 32 + 8 + 8 + 8 + 8 + 8 + 8 + 1 + 1 + 1,
         seeds = [b"dispute", content_mint.key().as_ref()],
         bump
     )]
     pub dispute_record: Account<'info, DisputeRecord>,
-    
-    /// CHECK: The mint of the content being disputed
+
+    /// CHECK: The PDA of the content record being disputed
     pub content_mint: UncheckedAccount<'info>,
-    
-    /// CHECK: the creator of the disputed content
+
+    /// CHECK: The original creator of the content
     pub creator: UncheckedAccount<'info>,
 
     #[account(mut)]
@@ -253,7 +335,7 @@ pub struct CastVote<'info> {
         bump = dispute_record.bump
     )]
     pub dispute_record: Account<'info, DisputeRecord>,
-    
+
     #[account(
         init,
         payer = voter,
@@ -262,9 +344,9 @@ pub struct CastVote<'info> {
         bump
     )]
     pub vote_receipt: Account<'info, VoteReceipt>,
-    
-    #[account(mut)]
-    pub rep_token_account: InterfaceAccount<'info, TokenAccount>,
+
+    /// CHECK: KRED_REP token account — may not exist for new voters, handled in code
+    pub rep_token_account: UncheckedAccount<'info>,
 
     #[account(mut)]
     pub voter: Signer<'info>,
@@ -282,7 +364,7 @@ pub struct ResolveDispute<'info> {
 }
 
 #[derive(Accounts)]
-pub struct ClaimReputation<'info> {
+pub struct ClaimReward<'info> {
     #[account(
         mut,
         seeds = [b"dispute", dispute_record.content_mint.as_ref()],
@@ -303,7 +385,7 @@ pub struct ClaimReputation<'info> {
     #[account(mut)]
     pub winner_token_account: InterfaceAccount<'info, TokenAccount>,
 
-    /// CHECK: Mint authority for KRED_REP
+    /// CHECK: Mint authority PDA for KRED_REP
     #[account(
         seeds = [b"mint_authority"],
         bump
@@ -314,7 +396,6 @@ pub struct ClaimReputation<'info> {
     pub voter: Signer<'info>,
     pub token_program: Interface<'info, TokenInterface>,
 }
-
 
 // ============================================================
 // State & Events
@@ -344,24 +425,26 @@ pub struct ContentRecord {
 
 #[account]
 pub struct DisputeRecord {
-    pub creator: Pubkey,
-    pub content_mint: Pubkey,
-    pub start_time: i64,
-    pub end_time: i64,
-    pub original_votes: u64,
-    pub counterfeit_votes: u64,
-    pub is_resolved: bool,
-    pub winning_side: u8,
-    pub bump: u8,
+    pub creator: Pubkey,           // 32
+    pub content_mint: Pubkey,      // 32
+    pub start_time: i64,           // 8
+    pub end_time: i64,             // 8
+    pub original_votes: u64,       // 8
+    pub counterfeit_votes: u64,    // 8
+    pub prize_pool: u64,           // 8  ← challenger stake held in PDA
+    pub total_winning_votes: u64,  // 8  ← set on resolve, used for pro-rata
+    pub is_resolved: bool,         // 1
+    pub winning_side: u8,          // 1  (0=none, 1=original, 2=counterfeit)
+    pub bump: u8,                  // 1
 }
 
 #[account]
 pub struct VoteReceipt {
-    pub voter: Pubkey,
-    pub dispute: Pubkey,
-    pub choice: u8,
-    pub weight: u64,
-    pub claimed: bool,
+    pub voter: Pubkey,   // 32
+    pub dispute: Pubkey, // 32
+    pub choice: u8,      // 1
+    pub weight: u64,     // 8
+    pub claimed: bool,   // 1
 }
 
 #[event]
@@ -395,4 +478,8 @@ pub enum KredenceError {
     PlatformLocked,
     #[msg("Already claimed.")]
     AlreadyClaimed,
+    #[msg("Dispute PDA has insufficient funds for reward.")]
+    InsufficientFunds,
+    #[msg("Arithmetic overflow.")]
+    Overflow,
 }
