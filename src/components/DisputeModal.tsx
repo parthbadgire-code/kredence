@@ -44,6 +44,26 @@ export default function DisputeModal({ isOpen, onClose, hash, pda, creator }: Di
     setIsLocking(true);
     
     try {
+      const provider = new AnchorProvider(connection, wallet as any, { commitment: "confirmed" });
+      const program = new Program(IDL as Idl, provider);
+      const contentRecordPda = new PublicKey(pda);
+      const creatorPubkey = new PublicKey(creator);
+
+      const [disputeRecordPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from("dispute"), contentRecordPda.toBuffer()],
+        program.programId
+      );
+
+      // Pre-check: if dispute already exists, don't try to create another
+      setStatusMessage("Checking dispute status...");
+      const existingDispute = await connection.getAccountInfo(disputeRecordPda);
+      if (existingDispute) {
+        alert("A dispute is already active for this content. Check the 'Active Disputes' section at the top of the feed to vote!");
+        setIsLocking(false);
+        onClose();
+        return;
+      }
+
       setStatusMessage("Uploading evidence to IPFS...");
       const formData = new FormData();
       formData.append("description", description);
@@ -58,23 +78,8 @@ export default function DisputeModal({ isOpen, onClose, hash, pda, creator }: Di
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to upload evidence");
-      
-      const ipfsEvidenceUrl = data.evidenceUrl;
 
       setStatusMessage("Opening Challenge on-chain...");
-      const provider = new AnchorProvider(connection, wallet as any, { commitment: "confirmed" });
-      const program = new Program(IDL as Idl, provider);
-
-      const contentRecordPda = new PublicKey(pda);
-      const creatorPubkey = new PublicKey(creator);
-
-      const [disputeRecordPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("dispute"), contentRecordPda.toBuffer()],
-        program.programId
-      );
-
-      console.log("Program methods available:", Object.keys(program.methods));
-
       await program.methods
         .createDispute()
         .accounts({
@@ -87,9 +92,10 @@ export default function DisputeModal({ isOpen, onClose, hash, pda, creator }: Di
         .rpc();
 
       setLockSuccess(true);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to create dispute", err);
-      alert("Failed to create dispute (v2 deployment active). See console for keys.");
+      const msg = err?.message ?? String(err);
+      alert("Failed to create dispute: " + msg);
     } finally {
       setIsLocking(false);
     }
