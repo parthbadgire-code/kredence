@@ -1,5 +1,5 @@
 {
-  "address": "EMrHDb9yk3cjnnj2czRa7MRi6PTjWJukUnZ2Zt3jWNv6",
+  "address": "noopb9bkMVfRPU8AsbpTUg8AQkHtKwMYZiFUjNRtMmV",
   "metadata": {
     "name": "anchor_kredence",
     "version": "0.1.0",
@@ -79,8 +79,7 @@
           }
         },
         {
-          "name": "rep_token_account",
-          "writable": true
+          "name": "rep_token_account"
         },
         {
           "name": "voter",
@@ -130,16 +129,16 @@
       ]
     },
     {
-      "name": "claim_reputation",
+      "name": "claim_reward",
       "discriminator": [
-        73,
-        120,
-        245,
-        41,
-        109,
-        127,
-        63,
-        241
+        149,
+        95,
+        181,
+        242,
+        94,
+        90,
+        158,
+        162
       ],
       "accounts": [
         {
@@ -581,6 +580,16 @@
       "code": 6008,
       "name": "AlreadyClaimed",
       "msg": "Already claimed."
+    },
+    {
+      "code": 6009,
+      "name": "InsufficientFunds",
+      "msg": "Dispute PDA has insufficient funds for reward."
+    },
+    {
+      "code": 6010,
+      "name": "Overflow",
+      "msg": "Arithmetic overflow."
     }
   ],
   "types": [
@@ -671,6 +680,14 @@
           },
           {
             "name": "counterfeit_votes",
+            "type": "u64"
+          },
+          {
+            "name": "prize_pool",
+            "type": "u64"
+          },
+          {
+            "name": "total_winning_votes",
             "type": "u64"
           },
           {

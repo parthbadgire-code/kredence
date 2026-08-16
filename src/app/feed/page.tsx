@@ -37,6 +37,8 @@ interface DisputeItem {
   winningSide: number;
   originalVotes: number;
   counterfeitVotes: number;
+  prizePool: number;
+  totalWinningVotes: number;
 }
 
 export default function FeedPage() {
@@ -102,6 +104,8 @@ export default function FeedPage() {
         winningSide: d.account.winningSide,
         originalVotes: Number(d.account.originalVotes),
         counterfeitVotes: Number(d.account.counterfeitVotes),
+        prizePool: Number(d.account.prizePool ?? 50_000_000),
+        totalWinningVotes: Number(d.account.totalWinningVotes ?? 0),
       }));
       setDisputes(disputeItems);
 
@@ -215,6 +219,8 @@ export default function FeedPage() {
                 winningSide={d.winningSide}
                 originalVotes={d.originalVotes}
                 counterfeitVotes={d.counterfeitVotes}
+                prizePool={d.prizePool}
+                totalWinningVotes={d.totalWinningVotes}
                 onRefresh={fetchFeed}
               />
             ))}
@@ -241,6 +247,8 @@ export default function FeedPage() {
                 winningSide={d.winningSide}
                 originalVotes={d.originalVotes}
                 counterfeitVotes={d.counterfeitVotes}
+                prizePool={d.prizePool}
+                totalWinningVotes={d.totalWinningVotes}
                 onRefresh={fetchFeed}
               />
             ))}
