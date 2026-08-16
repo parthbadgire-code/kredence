@@ -81,7 +81,7 @@ export default function DisputeModal({ isOpen, onClose, hash, pda, creator }: Di
 
       setStatusMessage("Opening Challenge on-chain...");
       await program.methods
-        .createDispute()
+        .createDispute(data.evidenceUrl)
         .accounts({
           disputeRecord: disputeRecordPda,
           contentMint: contentRecordPda,

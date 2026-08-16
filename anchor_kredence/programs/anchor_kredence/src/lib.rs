@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::{program::invoke, instruction::{AccountMeta, Instruction}};
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface, MintTo, mint_to};
+use anchor_spl::associated_token::AssociatedToken;
 
 declare_id!("EMrHDb9yk3cjnnj2czRa7MRi6PTjWJukUnZ2Zt3jWNv6");
 
@@ -82,7 +83,7 @@ pub mod anchor_kredence {
     // ----------------------------------------------------------------
     // DISPUTE: Phase 1 — Create (challenger stakes 0.05 SOL)
     // ----------------------------------------------------------------
-    pub fn create_dispute(ctx: Context<CreateDispute>) -> Result<()> {
+    pub fn create_dispute(ctx: Context<CreateDispute>, evidence_url: String) -> Result<()> {
         // Transfer the challenger stake into the dispute_record PDA account
         let transfer_ix = anchor_lang::solana_program::system_instruction::transfer(
             &ctx.accounts.challenger.key(),
@@ -110,6 +111,7 @@ pub mod anchor_kredence {
         record.is_resolved = false;
         record.winning_side = 0;
         record.bump = ctx.bumps.dispute_record;
+        record.evidence_url = evidence_url;
         Ok(())
     }
 
@@ -309,8 +311,8 @@ pub struct CreateDispute<'info> {
         payer = challenger,
         // 8 disc + 32 creator + 32 content_mint + 8 start + 8 end
         // + 8 orig_votes + 8 counter_votes + 8 prize_pool + 8 total_winning
-        // + 1 is_resolved + 1 winning_side + 1 bump = 123
-        space = 8 + 32 + 32 + 8 + 8 + 8 + 8 + 8 + 8 + 1 + 1 + 1,
+        // + 1 is_resolved + 1 winning_side + 1 bump + 4 + 76 evidence = 203
+        space = 8 + 32 + 32 + 8 + 8 + 8 + 8 + 8 + 8 + 1 + 1 + 1 + 80,
         seeds = [b"dispute", content_mint.key().as_ref()],
         bump
     )]
@@ -382,7 +384,13 @@ pub struct ClaimReward<'info> {
     #[account(mut)]
     pub kred_rep_mint: InterfaceAccount<'info, Mint>,
 
-    #[account(mut)]
+    #[account(
+        init_if_needed,
+        payer = voter,
+        associated_token::mint = kred_rep_mint,
+        associated_token::authority = voter,
+        associated_token::token_program = token_program
+    )]
     pub winner_token_account: InterfaceAccount<'info, TokenAccount>,
 
     /// CHECK: Mint authority PDA for KRED_REP
@@ -395,6 +403,8 @@ pub struct ClaimReward<'info> {
     #[account(mut)]
     pub voter: Signer<'info>,
     pub token_program: Interface<'info, TokenInterface>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
 }
 
 // ============================================================
@@ -436,6 +446,7 @@ pub struct DisputeRecord {
     pub is_resolved: bool,         // 1
     pub winning_side: u8,          // 1  (0=none, 1=original, 2=counterfeit)
     pub bump: u8,                  // 1
+    pub evidence_url: String,      // 4 + 76 = 80
 }
 
 #[account]

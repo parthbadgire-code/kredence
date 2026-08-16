@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Clock, ShieldCheck, Gavel, BarChart2, Coins, Zap } from "lucide-react";
+import { Clock, ShieldCheck, Gavel, BarChart2, Coins, Zap, ExternalLink } from "lucide-react";
+import Link from "next/link";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Program, AnchorProvider, Idl, BN } from "@coral-xyz/anchor";
 import { PublicKey, SystemProgram } from "@solana/web3.js";
@@ -249,7 +250,12 @@ export default function DisputeCard({
           <h3 className="text-zinc-100 font-bold text-sm">
             Dispute — <span className="font-mono text-amber-400">{contentMint.slice(0, 8)}...</span>
           </h3>
-          <p className="text-xs text-zinc-500 mt-0.5">Creator: {creator.slice(0, 8)}...</p>
+          <div className="flex items-center gap-3">
+            <p className="text-xs text-zinc-500 mt-0.5">Creator: {creator.slice(0, 8)}...</p>
+            <Link href={`/dispute/${disputePda}`} className="text-xs font-bold text-amber-500 hover:text-amber-400 flex items-center gap-1 transition-colors mt-0.5 border border-amber-900/50 bg-amber-950/20 px-2 py-0.5 rounded-full">
+              View Evidence <ExternalLink size={10} />
+            </Link>
+          </div>
         </div>
         {!isResolved ? (
           <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full font-mono font-bold text-sm ${

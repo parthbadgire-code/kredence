@@ -97,7 +97,7 @@ export default function FeedPage() {
     // --- Dispute records: filter by exact new account size (123 bytes) to skip stale old-layout accounts ---
     try {
       // New DisputeRecord = 8 disc + 32+32+8+8+8+8+8+8+1+1+1 = 123 bytes
-      const NEW_DISPUTE_SIZE = 123;
+      const NEW_DISPUTE_SIZE = 203;
       const rawAccounts = await connection.getProgramAccounts(program.programId, {
         filters: [{ dataSize: NEW_DISPUTE_SIZE }],
       });
