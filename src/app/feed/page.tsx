@@ -7,8 +7,6 @@ import { Program, AnchorProvider, Idl } from "@coral-xyz/anchor";
 import IDL from "@/lib/idl.json";
 import BackgroundCanvas from "@/components/BackgroundCanvas";
 import FeedCard from "@/components/FeedCard";
-import FeedCard from "@/components/FeedCard";
-import NavBar from "@/components/NavBar";
 import { Loader2 } from "lucide-react";
 
 const CHANNELS = ["All", "c/memes", "c/leaks", "c/art"];
@@ -150,7 +148,6 @@ export default function FeedPage() {
   return (
     <main className="relative min-h-screen bg-[#050505] text-[#e5e5e7] selection:bg-purple-900/40 selection:text-purple-200">
       <BackgroundCanvas />
-      <NavBar />
 
       <div className="relative z-10 mx-auto max-w-2xl px-4 py-8 sm:py-12 flex flex-col gap-8">
 

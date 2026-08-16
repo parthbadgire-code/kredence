@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Space_Grotesk, Inter } from "next/font/google";
 import "./globals.css";
 import SolanaProviders from "@/components/SolanaProviders";
-import Navbar from "@/components/Navbar";
+import NavBar from "@/components/NavBar";
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
@@ -27,7 +27,7 @@ export default function RootLayout({
     <html lang="en" className={`${spaceGrotesk.variable} ${inter.variable}`}>
       <body className="antialiased">
         <SolanaProviders>
-          <Navbar />
+          <NavBar />
           {children}
         </SolanaProviders>
       </body>
