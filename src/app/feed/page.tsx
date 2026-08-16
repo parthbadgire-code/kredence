@@ -94,30 +94,32 @@ export default function FeedPage() {
       console.error("Failed to fetch content records:", err);
     }
 
-    // --- Dispute records (independent — stale layouts won't crash content feed) ---
+    // --- Dispute records: filter by exact new account size (123 bytes) to skip stale old-layout accounts ---
     try {
-      const disputeRecords = await (program.account as any).disputeRecord.all();
-      const disputeItems: DisputeItem[] = disputeRecords
-        .filter((d: any) => {
-          // Skip accounts that don't have expected fields (old layout)
-          try { d.account.contentMint.toString(); return true; } catch { return false; }
-        })
-        .map((d: any) => ({
-          disputePda: d.publicKey.toString(),
-          contentMint: d.account.contentMint.toString(),
-          creator: d.account.creator.toString(),
-          endTime: d.account.endTime.toNumber(),
-          isResolved: d.account.isResolved,
-          winningSide: d.account.winningSide,
-          originalVotes: Number(d.account.originalVotes ?? 0),
-          counterfeitVotes: Number(d.account.counterfeitVotes ?? 0),
-          prizePool: Number(d.account.prizePool ?? 50_000_000),
-          totalWinningVotes: Number(d.account.totalWinningVotes ?? 0),
-        }));
+      // New DisputeRecord = 8 disc + 32+32+8+8+8+8+8+8+1+1+1 = 123 bytes
+      const NEW_DISPUTE_SIZE = 123;
+      const rawAccounts = await connection.getProgramAccounts(program.programId, {
+        filters: [{ dataSize: NEW_DISPUTE_SIZE }],
+      });
+      const disputeItems: DisputeItem[] = rawAccounts.map((a) => {
+        const decoded = program.coder.accounts.decode("disputeRecord", a.account.data);
+        return {
+          disputePda: a.pubkey.toString(),
+          contentMint: decoded.contentMint.toString(),
+          creator: decoded.creator.toString(),
+          endTime: decoded.endTime.toNumber(),
+          isResolved: decoded.isResolved,
+          winningSide: decoded.winningSide,
+          originalVotes: Number(decoded.originalVotes ?? 0),
+          counterfeitVotes: Number(decoded.counterfeitVotes ?? 0),
+          prizePool: Number(decoded.prizePool ?? 50_000_000),
+          totalWinningVotes: Number(decoded.totalWinningVotes ?? 0),
+        };
+      });
       setDisputes(disputeItems);
     } catch (err) {
-      console.error("Failed to fetch dispute records (may be stale layout):", err);
-      setDisputes([]); // Show feed without disputes rather than blocking everything
+      console.error("Failed to fetch dispute records:", err);
+      setDisputes([]);
     }
 
     setIsLoading(false);
