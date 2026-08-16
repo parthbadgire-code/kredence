@@ -39,6 +39,8 @@ export default function DisputeCard({
   const [isResolving, setIsResolving] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
   const [votedFor, setVotedFor] = useState<number | null>(null);
+  const [hasVoteReceipt, setHasVoteReceipt] = useState(false);
+  const [isCheckingVote, setIsCheckingVote] = useState(false);
 
   const getProgram = () => {
     const provider = new AnchorProvider(connection, wallet as any, { commitment: "confirmed" });
@@ -54,6 +56,29 @@ export default function DisputeCard({
     }, 1000);
     return () => clearInterval(interval);
   }, [endTime, isResolved]);
+
+  // Check if the connected wallet has a vote_receipt for this dispute
+  useEffect(() => {
+    if (!wallet.publicKey || !isResolved) return;
+    const checkVoteReceipt = async () => {
+      setIsCheckingVote(true);
+      try {
+        const program = getProgram();
+        const disputeRecordPubkey = new PublicKey(disputePda);
+        const [voteReceiptPda] = PublicKey.findProgramAddressSync(
+          [Buffer.from("vote_receipt"), disputeRecordPubkey.toBuffer(), wallet.publicKey!.toBuffer()],
+          program.programId
+        );
+        const acct = await connection.getAccountInfo(voteReceiptPda);
+        setHasVoteReceipt(!!acct);
+      } catch {
+        setHasVoteReceipt(false);
+      } finally {
+        setIsCheckingVote(false);
+      }
+    };
+    checkVoteReceipt();
+  }, [wallet.publicKey, isResolved, disputePda, connection]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60).toString().padStart(2, "0");
@@ -272,13 +297,23 @@ export default function DisputeCard({
                 {winningSide === 1 ? "Original Creator" : "Challenger"}
               </span>
             </div>
-            <button
-              onClick={handleClaim}
-              disabled={isClaiming}
-              className="w-full py-3 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 border border-blue-600/50 text-blue-400 font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-50 text-sm"
-            >
-              <ShieldCheck size={16} /> {isClaiming ? "Claiming..." : "Mint Reputation Badge"}
-            </button>
+            {isCheckingVote ? (
+              <div className="w-full py-3 rounded-xl bg-zinc-800/40 border border-zinc-700/40 text-zinc-500 text-sm text-center">
+                Checking vote eligibility...
+              </div>
+            ) : hasVoteReceipt ? (
+              <button
+                onClick={handleClaim}
+                disabled={isClaiming}
+                className="w-full py-3 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 border border-blue-600/50 text-blue-400 font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-50 text-sm"
+              >
+                <ShieldCheck size={16} /> {isClaiming ? "Claiming..." : "Mint Reputation Badge"}
+              </button>
+            ) : (
+              <div className="w-full py-3 rounded-xl bg-zinc-800/30 border border-zinc-700/30 text-zinc-500 text-sm text-center flex items-center justify-center gap-2">
+                <ShieldCheck size={14} /> You did not vote — badge not claimable
+              </div>
+            )}
           </div>
         )}
       </div>
