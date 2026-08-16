@@ -46,6 +46,7 @@ export default function DisputeCard({
   const [votedFor, setVotedFor] = useState<number | null>(null);
   const [hasVoteReceipt, setHasVoteReceipt] = useState(false);
   const [myVoteWeight, setMyVoteWeight] = useState(0);
+  const [hasClaimed, setHasClaimed] = useState(false);
   const [isCheckingVote, setIsCheckingVote] = useState(false);
 
   const getProgram = () => {
@@ -81,8 +82,15 @@ export default function DisputeCard({
           setHasVoteReceipt(true);
           // Decode choice and weight from VoteReceipt
           // discriminator[8] + voter[32] + dispute[32] = 72 bytes
-          // choice[1] is at 72, weight[8] is at 73
-          if (acct.data.length >= 81) {
+          // choice[1] is at 72, weight[8] is at 73, claimed[1] is at 81
+          if (acct.data.length >= 82) {
+            const choice = acct.data[72];
+            setVotedFor(choice);
+            const weight = Number(acct.data.readBigUInt64LE(73));
+            setMyVoteWeight(weight);
+            const claimed = acct.data[81] === 1;
+            setHasClaimed(claimed);
+          } else if (acct.data.length >= 81) {
             const choice = acct.data[72];
             setVotedFor(choice);
             const weight = Number(acct.data.readBigUInt64LE(73));
@@ -370,7 +378,7 @@ export default function DisputeCard({
               <div className="w-full py-3 rounded-xl bg-zinc-800/40 border border-zinc-700/40 text-zinc-500 text-sm text-center">
                 Checking eligibility...
               </div>
-            ) : hasVoteReceipt && votedFor === winningSide ? (
+            ) : hasVoteReceipt && votedFor === winningSide && !hasClaimed ? (
               <button
                 onClick={handleClaim}
                 disabled={isClaiming}
@@ -379,6 +387,10 @@ export default function DisputeCard({
                 <ShieldCheck size={16} />
                 {isClaiming ? "Claiming..." : `Claim ${estimatedRewardSOL} SOL + KRED_REP Badge`}
               </button>
+            ) : hasVoteReceipt && votedFor === winningSide && hasClaimed ? (
+              <div className="w-full py-3 rounded-xl bg-emerald-900/30 border border-emerald-700/30 text-emerald-400 text-sm text-center flex items-center justify-center gap-2">
+                <ShieldCheck size={14} /> Reward Claimed Successfully!
+              </div>
             ) : hasVoteReceipt && votedFor !== winningSide ? (
               <div className="w-full py-3 rounded-xl bg-zinc-800/30 border border-zinc-700/30 text-rose-500/70 text-sm text-center flex items-center justify-center gap-2">
                 <ShieldCheck size={14} /> You voted for the loser — not eligible for reward

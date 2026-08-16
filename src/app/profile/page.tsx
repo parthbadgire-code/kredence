@@ -4,10 +4,14 @@ import { useState, useEffect, useCallback } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { Program, AnchorProvider, Idl } from "@coral-xyz/anchor";
+import { PublicKey } from "@solana/web3.js";
+import { getAssociatedTokenAddressSync, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 import IDL from "@/lib/idl.json";
 import BackgroundCanvas from "@/components/BackgroundCanvas";
 import FeedCard from "@/components/FeedCard";
-import { Loader2, AlertTriangle, UserCircle, CheckCircle2, Save } from "lucide-react";
+import { Loader2, AlertTriangle, UserCircle, CheckCircle2, Save, ShieldCheck } from "lucide-react";
+
+const KRED_REP_MINT = new PublicKey("6u6qVLPhpwyMy9PbtAA1P8q1PKG1615mohCW6HcuXEAB");
 
 interface FeedItem {
   pda: string;
@@ -36,13 +40,31 @@ export default function ProfilePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [activeTab, setActiveTab] = useState<"uploads" | "licenses">("uploads");
+  const [repBalance, setRepBalance] = useState(0);
 
   useEffect(() => {
     if (wallet.publicKey) {
       const savedName = localStorage.getItem(`kredence_username_${wallet.publicKey.toString()}`);
       if (savedName) setUsername(savedName);
+
+      // Fetch KRED_REP balance
+      const fetchRep = async () => {
+        try {
+          const ata = getAssociatedTokenAddressSync(
+            KRED_REP_MINT,
+            wallet.publicKey!,
+            false,
+            TOKEN_2022_PROGRAM_ID
+          );
+          const balance = await connection.getTokenAccountBalance(ata);
+          setRepBalance(Number(balance.value.uiAmount));
+        } catch (e) {
+          setRepBalance(0);
+        }
+      };
+      fetchRep();
     }
-  }, [wallet.publicKey]);
+  }, [wallet.publicKey, connection]);
 
   const handleSaveProfile = () => {
     if (!wallet.publicKey) return;
@@ -265,6 +287,13 @@ export default function ProfilePage() {
               <p className="text-xs text-zinc-500 font-mono">
                 Wallet: {wallet.publicKey.toString().slice(0, 8)}...{wallet.publicKey.toString().slice(-8)}
               </p>
+            </div>
+
+            {/* Rep Badges */}
+            <div className="flex-shrink-0 flex flex-col items-center justify-center p-4 rounded-xl bg-amber-900/20 border border-amber-700/30">
+              <ShieldCheck className="text-amber-400 mb-1" size={28} />
+              <div className="text-2xl font-bold text-amber-300 font-mono">{repBalance}</div>
+              <div className="text-xs text-amber-500/80 uppercase font-bold tracking-wider">KRED_REP Badges</div>
             </div>
           </div>
         )}
