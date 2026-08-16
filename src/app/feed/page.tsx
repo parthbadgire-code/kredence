@@ -61,19 +61,17 @@ export default function FeedPage() {
 
   const fetchFeed = useCallback(async () => {
     setIsLoading(true);
-    try {
-      const program = getReadOnlyProgram();
+    const program = getReadOnlyProgram();
 
-      // Fetch content records
+    // --- Content records (independent) ---
+    try {
       const records = await (program.account as any).contentRecord.all();
       const items: FeedItem[] = records.map((r: any) => {
         const data = r.account;
         const hashStr = data.pHash as string;
-
         let sum = 0;
         for (let i = 0; i < hashStr.length; i++) sum += hashStr.charCodeAt(i);
         const channelAssigned = CHANNELS[(sum % (CHANNELS.length - 1)) + 1];
-
         return {
           pda: r.publicKey.toString(),
           hash: hashStr,
@@ -92,28 +90,37 @@ export default function FeedPage() {
       });
       items.sort((a, b) => b.timestamp - a.timestamp);
       setFeedItems(items);
-
-      // Fetch dispute records
-      const disputeRecords = await (program.account as any).disputeRecord.all();
-      const disputeItems: DisputeItem[] = disputeRecords.map((d: any) => ({
-        disputePda: d.publicKey.toString(),
-        contentMint: d.account.contentMint.toString(),
-        creator: d.account.creator.toString(),
-        endTime: d.account.endTime.toNumber(),
-        isResolved: d.account.isResolved,
-        winningSide: d.account.winningSide,
-        originalVotes: Number(d.account.originalVotes),
-        counterfeitVotes: Number(d.account.counterfeitVotes),
-        prizePool: Number(d.account.prizePool ?? 50_000_000),
-        totalWinningVotes: Number(d.account.totalWinningVotes ?? 0),
-      }));
-      setDisputes(disputeItems);
-
     } catch (err) {
-      console.error("Failed to fetch feed:", err);
-    } finally {
-      setIsLoading(false);
+      console.error("Failed to fetch content records:", err);
     }
+
+    // --- Dispute records (independent — stale layouts won't crash content feed) ---
+    try {
+      const disputeRecords = await (program.account as any).disputeRecord.all();
+      const disputeItems: DisputeItem[] = disputeRecords
+        .filter((d: any) => {
+          // Skip accounts that don't have expected fields (old layout)
+          try { d.account.contentMint.toString(); return true; } catch { return false; }
+        })
+        .map((d: any) => ({
+          disputePda: d.publicKey.toString(),
+          contentMint: d.account.contentMint.toString(),
+          creator: d.account.creator.toString(),
+          endTime: d.account.endTime.toNumber(),
+          isResolved: d.account.isResolved,
+          winningSide: d.account.winningSide,
+          originalVotes: Number(d.account.originalVotes ?? 0),
+          counterfeitVotes: Number(d.account.counterfeitVotes ?? 0),
+          prizePool: Number(d.account.prizePool ?? 50_000_000),
+          totalWinningVotes: Number(d.account.totalWinningVotes ?? 0),
+        }));
+      setDisputes(disputeItems);
+    } catch (err) {
+      console.error("Failed to fetch dispute records (may be stale layout):", err);
+      setDisputes([]); // Show feed without disputes rather than blocking everything
+    }
+
+    setIsLoading(false);
   }, [getReadOnlyProgram]);
 
   useEffect(() => {
