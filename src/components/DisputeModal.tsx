@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, ShieldAlert, CheckCircle2, Lock, UploadCloud } from "lucide-react";
+import { X, ShieldAlert, CheckCircle2, Lock, UploadCloud } from "lucide-react"; // Force recompilation for IDL fix (address)
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { Program, AnchorProvider, Idl } from "@coral-xyz/anchor";
 import IDL from "@/lib/idl.json";
