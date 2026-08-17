@@ -1,5 +1,5 @@
 {
-  "address": "EMrHDb9yk3cjnnj2czRa7MRi6PTjWJukUnZ2Zt3jWNv6",
+  "address": "noopb9bkMVfRPU8AsbpTUg8AQkHtKwMYZiFUjNRtMmV",
   "metadata": {
     "name": "anchor_kredence",
     "version": "0.1.0",
@@ -404,6 +404,10 @@
           }
         },
         {
+          "name": "content_record",
+          "writable": true
+        },
+        {
           "name": "content_mint"
         },
         {
@@ -497,6 +501,10 @@
               }
             ]
           }
+        },
+        {
+          "name": "content_record",
+          "writable": true
         }
       ],
       "args": []
@@ -726,6 +734,10 @@
         "fields": [
           {
             "name": "creator",
+            "type": "pubkey"
+          },
+          {
+            "name": "challenger",
             "type": "pubkey"
           },
           {
